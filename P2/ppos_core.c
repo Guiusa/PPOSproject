@@ -1,0 +1,51 @@
+// GRR20210572 Guiusepe Oneda Dal Pai
+#include <stdio.h>
+#include <stdlib.h>
+#include "ppos_data.h"
+#include "ppos.h"
+
+int gbl_tid_next = 0;
+task_t *out_task, main_task;
+
+void ppos_init(){
+    // Desativa o buffer usado pelo printf
+    setvbuf(stdout, 0, _IONBF, 0) ;
+    getcontext(&main_task.context);
+    out_task = &main_task;
+}
+
+int task_init(task_t *task, void (*start_func)(void *), void *arg){
+    getcontext(&task->context) ;
+    char *stack = malloc(TASK_STACK_SIZE) ;
+    if(stack){
+        task->context.uc_stack.ss_sp = stack ;
+        task->context.uc_stack.ss_size = TASK_STACK_SIZE ;
+        task->context.uc_stack.ss_flags = 0 ;
+        task->context.uc_link = 0;
+    } else {
+        perror("Erro na criação da pilha para essa tarefa\n") ;
+        exit(-1);
+    }
+
+    makecontext(&task->context, (void*)(*start_func), 1, arg) ;
+
+    task->id = gbl_tid_next++;
+    task->status = 0;
+
+    #ifdef DEBUG
+        printf("[task_init] Tarefa %d criada\n", task->id);
+    #endif
+
+    return task->id;
+}
+
+int task_switch (task_t *task){
+    printf("%p\n%p\n", &out_task->context, &main_task.context);
+    swapcontext(&out_task->context, &task->context);
+    return 0;
+}
+
+void task_exit(int exit_code){
+    printf("%p\n%p\n", &out_task->context, &main_task.context);
+    swapcontext(&out_task->context, &main_task.context);
+}

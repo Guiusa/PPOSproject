@@ -1,4 +1,4 @@
-// Guiusepe Oneda Dal Pai - GRR20210572
+// GRR20210572 Guiusepe Oneda Dal Pai
 #include <stdio.h>
 #include "queue.h"
 
