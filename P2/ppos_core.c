@@ -4,14 +4,21 @@
 #include "ppos_data.h"
 #include "ppos.h"
 
-int gbl_tid_next = 0;
+int gbl_tid_next = 1;
 task_t *out_task, main_task;
 
 void ppos_init(){
     // Desativa o buffer usado pelo printf
     setvbuf(stdout, 0, _IONBF, 0) ;
+
+    // Inicializando a task main
     getcontext(&main_task.context);
     out_task = &main_task;
+    main_task.id = 0;
+
+    #ifdef DEBUG
+        printf("[ppos_init]\tIniciando o sistema e a task main\n");
+    #endif
 }
 
 int task_init(task_t *task, void (*start_func)(void *), void *arg){
@@ -33,19 +40,30 @@ int task_init(task_t *task, void (*start_func)(void *), void *arg){
     task->status = 0;
 
     #ifdef DEBUG
-        printf("[task_init] Tarefa %d criada\n", task->id);
+        printf("[task_init]\tTarefa %d criada\n", task->id);
     #endif
 
     return task->id;
 }
 
 int task_switch (task_t *task){
-    printf("%p\n%p\n", &out_task->context, &main_task.context);
-    swapcontext(&out_task->context, &task->context);
+    #ifdef DEBUG
+        printf("[task_switch]\tTrocando contexto %d -> %d\n", out_task->id, task->id);
+    #endif
+    task_t* aux = out_task;
+    out_task = task;
+    swapcontext(&aux->context, &task->context);
+    
     return 0;
 }
 
 void task_exit(int exit_code){
-    printf("%p\n%p\n", &out_task->context, &main_task.context);
+    #ifdef DEBUG
+        printf("[task_exit]\tTerminando tarefa %d\n", out_task->id);
+    #endif
     swapcontext(&out_task->context, &main_task.context);
+}
+
+int task_id(){
+    return out_task->id;
 }

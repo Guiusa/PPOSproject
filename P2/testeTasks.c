@@ -20,7 +20,7 @@ void BodyPing (void * arg)
    for (i=0; i<4; i++)
    {
       printf ("%s: %d\n", name, i) ;
-//      task_switch (&Pong);
+      task_switch (&Pong);
    }
    printf ("%s: fim\n", name) ;
    task_exit (0) ;
