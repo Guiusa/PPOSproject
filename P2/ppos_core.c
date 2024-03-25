@@ -61,7 +61,7 @@ void task_exit(int exit_code){
     #ifdef DEBUG
         printf("[task_exit]\tTerminando tarefa %d\n", out_task->id);
     #endif
-    swapcontext(&out_task->context, &main_task.context);
+    task_switch(&main_task);
 }
 
 int task_id(){
