@@ -1,4 +1,6 @@
 // GRR20210572 Guiusepe Oneda Dal Pai
+// Esse software foi densevolvido ao som dessa bomba:
+// https://open.spotify.com/playlist/14sE9c6EVIgq4T6PX3yix5
 #include <stdio.h>
 #include "queue.h"
 
