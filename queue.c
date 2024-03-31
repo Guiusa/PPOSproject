@@ -2,13 +2,14 @@
 #include <stdio.h>
 #include "queue.h"
 
-//##############################################################################
-// Counts number of elements in queue
+/*
+ * Conta o número de elementos na fila
+ */
 int queue_size (queue_t *queue){
     queue_t *aux = queue;
     int s = 0;
     
-    if(aux == NULL) return 0; // empty queue
+    if(aux == NULL) return 0; // fila vazia
 
     do { 
         aux = aux->next;
@@ -21,13 +22,14 @@ int queue_size (queue_t *queue){
 
 
 
-//##############################################################################
-// Iters over queue, calling print_elem function received for each node
+/*
+ * Itera sobre a fila, chamando print_elem para cada nodo
+ */
 void queue_print(char *name, queue_t *queue, void print_elem (void*) ){
     printf("%s [", name);
     queue_t* aux = queue;
     
-    if(! queue) goto queue_print_end; // Empty queue still prints "[]"
+    if(! queue) goto queue_print_end; // Fila vazia ainda imprime "[]"
 
     do 
     {
@@ -36,7 +38,7 @@ void queue_print(char *name, queue_t *queue, void print_elem (void*) ){
         aux = aux->next;
     } while(aux != queue);
 
-    // \b is a backspace, removes leftover blank space in last node
+    // \b é um backspace, gambiarra
     printf("\b \b");
 
     queue_print_end:
@@ -47,15 +49,17 @@ void queue_print(char *name, queue_t *queue, void print_elem (void*) ){
 
 
 
-//##############################################################################
-// Appends a node to the end of the queue
+
+/*
+ * Adiciona nodo ao fim da fila
+ */
 int queue_append (queue_t **queue, queue_t *elem){
-    // Checks if: queue exists | elem exists | elem isn't in another queue
+    // Checa se: fila existe | elem existe | elem não está enfileirado
     if(!queue) return -1;
     if(!elem) return -2;
     if(elem->prev || elem->next) return -3;
 
-    // If queue is empty, node pointer refers to itself
+    // Se a fila está vazia, os componentes do nodo apontam para si
     if(! *queue)
     {
         *queue = elem;
@@ -65,7 +69,7 @@ int queue_append (queue_t **queue, queue_t *elem){
     }
 
     queue_t* aux = *queue;
-    aux = aux->prev; // End of queue
+    aux = aux->prev; // fim da fila
 
     elem->prev = aux;
     elem->next = aux->next;
@@ -74,18 +78,22 @@ int queue_append (queue_t **queue, queue_t *elem){
         
     return 0;
 }
-
 //##############################################################################
-// Removes a queue's node
+
+
+
+/*
+ * Remove elemento da fila
+ */
 int queue_remove (queue_t **queue, queue_t *elem){
-    // Checks if: queue exists | elem exists | queue isn't empty
+    // Checa se: fila existe | elem existe | fila não está vazia
     if(!queue) return -1;
     if(!elem) return -2;
     if(!*queue) return -3;
     
     queue_t* aux = *queue;
     int onqueue = 0;
-    // Checks if elem is on given queue, throws exception if not
+    // Checa se o elemento recebido realmente está na fila recebida
     do {
         if(aux == elem){
             onqueue = 1;
@@ -96,8 +104,8 @@ int queue_remove (queue_t **queue, queue_t *elem){
 
     if(!onqueue) return -4 ;
 
-    // If elem is the first node of the queue, needs to reposition queue pointer
-    // If elem is the only node, queue is set to NULL
+    // Se elem é o primeiro nodo da fila, é necessário reposicionar o ponteiro
+    // Se elem é o único nodo, queue é setado para NULL
     if(*queue == elem){
        if(elem->next == elem){
             *queue = NULL;
