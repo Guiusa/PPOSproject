@@ -1,12 +1,12 @@
 FLAGS = -Wall
 CC = gcc
-PROG = testeTasks
+PROG = main.c
 
 all:
-	$(CC) $(FLAGS) ppos_core.c $(PROG).c -o $(PROG)
+	$(CC) $(FLAGS) queue.c ppos_core.c $(PROG) -o dispatcher
 
 debug:
-	$(CC) $(FLAGS) -DDEBUG ppos_core.c $(PROG).c -o $(PROG)
+	$(CC) $(FLAGS) -DDEBUG queue.c ppos_core.c $(PROG) -o dispatcher
 
 purge:
-	rm -rf $(PROG)
+	rm -rf dispatcher

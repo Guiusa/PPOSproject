@@ -10,12 +10,6 @@
 
 #include <ucontext.h>		// biblioteca POSIX de trocas de contexto
 
-// tamanho da pilha de cada tarefa
-#define TASK_STACK_SIZE 64*1024
-
-// itrador para dar um valor novo a cada tarefa
-extern int gbl_tid_next;
-
 // Estrutura que define um Task Control Block (TCB)
 typedef struct task_t
 {
