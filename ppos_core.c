@@ -21,6 +21,16 @@
 int gbl_tid_next = 1;               // Controle de id de tasks criadas
 task_t *out_task, main_task;        // variáveis para task switching 
 task_t dispatcher, *task_queue ;    // variáveis pro dispatcher
+
+void print_elem (void *ptr){
+    task_t *elem = ptr ;
+
+    if(!elem) return;
+
+    elem->prev ? printf ("%d", elem->prev->id) : printf("*");
+    printf("<%d|%d>", elem->id, elem->prio) ;
+    elem->next ? printf("%d", elem->next->id) : printf("*");
+}
                     
 /*
  * Retorna endereço para inserir task na fila
@@ -31,7 +41,20 @@ task_t* scheduler(){
 }
 //##############################################################################
 
+void ordered_append(task_t **queue, task_t *task){
+    if(queue_size((queue_t *) *queue) == 0){
+        queue_append((queue_t **) queue, (queue_t *) task);
+        return;
+    }
+    task_t* iter = *queue ;
+    while(iter->next != *queue){
+        if(iter->prio <= task->prio) break ;
+        iter = iter->next;
+    }
+    queue_append((queue_t **) &iter, (queue_t *) task);
 
+    queue_print("FILA: ", (queue_t *) task_queue, print_elem);
+}
 
 /*
  * Corpo do dispatcher, itera sobre a fila para colocar tarefas em execução
@@ -48,7 +71,8 @@ void dispatcher_body(){
 
         switch (task->status){
             case PRONTA:
-                queue_append((queue_t **) &task_queue, (queue_t *) task) ;
+                ordered_append(&task_queue, task);
+                //queue_append((queue_t **) &task_queue, (queue_t *) task) ;
                 break ;
 
             case TERMINADA:
@@ -122,7 +146,8 @@ int task_init(task_t *task, void (*start_func)(void *), void *arg){
     task->status = PRONTA ;
     task->prio = 0 ;
 
-    queue_append((queue_t **) &task_queue, (queue_t *) task) ;
+    ordered_append(&task_queue, task);
+//    queue_append((queue_t **) &task_queue, (queue_t *) task) ;
 
     #ifdef DEBUG
         printf("[task_init]\tTarefa %d criada\n", task->id);
