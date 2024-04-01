@@ -36,6 +36,17 @@ int main (int argc, char *argv[])
    task_init (&Ping, Body, "            Ping") ;
    task_init (&Pong, Body, "                Pong") ;
    task_init (&Pung, Body, "                    Pung") ;
+   task_setprio(&Pang, -20) ;
+   task_setprio(&Peng, -10) ;
+   task_setprio(&Ping, 0) ;
+   task_setprio(&Pong, 10) ;
+   task_setprio(&Pung, 20) ;
+
+   printf("Pang: %d\n", task_getprio(&Pang));
+   printf("Peng: %d\n", task_getprio(&Peng));
+   printf("Ping: %d\n", task_getprio(&Ping));
+   printf("Pong: %d\n", task_getprio(&Pong));
+   printf("Pung: %d\n", task_getprio(&Pung));
 
    printf ("main: fim\n");
    

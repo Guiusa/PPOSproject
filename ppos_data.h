@@ -14,9 +14,10 @@
 typedef struct task_t
 {
   struct task_t *prev, *next ;		// ponteiros para usar em filas
-  int id ;				// identificador da tarefa
-  ucontext_t context ;			// contexto armazenado da tarefa
-  short status ;			// pronta, rodando, suspensa, ...
+  int id ;				            // identificador da tarefa
+  ucontext_t context ;			    // contexto armazenado da tarefa
+  short status ;			        // pronta, rodando, suspensa, ...
+  int prio ;                      // prioridade [-20, 20]
   // ... (outros campos serão adicionados mais tarde)
 } task_t ;
 

@@ -29,7 +29,13 @@ task_t dispatcher, *task_queue ;    // variáveis pro dispatcher
 task_t* scheduler(){
     return task_queue;
 }
+//##############################################################################
 
+
+
+/*
+ * Corpo do dispatcher, itera sobre a fila para colocar tarefas em execução
+ */
 void dispatcher_body(){
     queue_remove((queue_t **) &task_queue, (queue_t*) &dispatcher);
     task_t* task = NULL ;
@@ -114,6 +120,7 @@ int task_init(task_t *task, void (*start_func)(void *), void *arg){
     // Inicialização dos componentes da struct task_t, adição na fila de prontas
     task->id = gbl_tid_next++ ;
     task->status = PRONTA ;
+    task->prio = 0 ;
 
     queue_append((queue_t **) &task_queue, (queue_t *) task) ;
 
@@ -169,23 +176,55 @@ void task_exit(int exit_code){
     #endif
 
     switch(task_id()){
-        case 0:
+        case 0: // id 0 task main
             out_task->status = TERMINADA ;
             task_switch(&dispatcher) ;
             break;
 
-        case 1:
+        case 1: // id 1 task dispatcher
             exit(exit_code) ;
             break;  
 
-        default:
+        default: // outras tasks
             out_task->status = TERMINADA ;
             task_switch(&dispatcher) ;
             break;
     }
 }
+//##############################################################################
 
+
+
+/*
+ * Retorna id da task atual
+ */ 
 int task_id(){
     return out_task->id;
 }
-//##############################################################################v
+//##############################################################################
+
+
+
+/*
+ * Define um valor para o campo prio(rity) da task recebida
+ */
+void task_setprio(task_t* task, int prio){
+    if(!task){
+        perror("[task_setprio]\tTarefa recebida não inicializada\n");
+        exit(1);
+    }
+
+    task->prio = prio;
+}
+//##############################################################################
+
+
+
+/*
+ * Retorna o valor de prio(rity) da task recebida, se for nula retorna da task
+ * corrente
+ */
+int task_getprio(task_t* task){
+    return (task) ? task->prio : out_task->prio ;
+}
+//##############################################################################
