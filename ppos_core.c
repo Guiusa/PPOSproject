@@ -2,6 +2,7 @@
 // Esse software foi produzido ao som dessa(s) bomba(s):
 // https://open.spotify.com/playlist/37i9dQZF1DZ06evO0gHlRP?si=6940c39240224a56
 // https://open.spotify.com/album/4d1mlXFZNIpwadYTMl8pED?si=0dIQdTG0R7CQRPwNfSkn-w
+// https://open.spotify.com/album/5m2Qjtg2Og7ee5TcTgJZkn?si=SPhZAVF9RbW76dQi7JUayA
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,12 +10,19 @@
 #include "ppos.h"
 #include "queue.h"
 
-/* pronta rodando suspensa terminada */
+// Status de tarefas
 #define TERMINADA   0
 #define PRONTA      1
 #define RODANDO     2
 #define SUSPENSA    3
 
+// Prioridades
+#define PRIO_DEFAULT 0
+#define PRIO_ALTA   -20
+#define PRIO_BAIXA  20
+#define PRIO_PASSO   -1
+
+// Tamanho stack
 #define TASK_STACK_SIZE 64*1024
 
                                     
@@ -22,39 +30,58 @@ int gbl_tid_next = 1;               // Controle de id de tasks criadas
 task_t *out_task, main_task;        // variáveis para task switching 
 task_t dispatcher, *task_queue ;    // variáveis pro dispatcher
 
+/*
+ * Função auxiliar para imprimir a fila caso necessário
+ */
 void print_elem (void *ptr){
     task_t *elem = ptr ;
 
     if(!elem) return;
 
     elem->prev ? printf ("%d", elem->prev->id) : printf("*");
-    printf("<%d|%d>", elem->id, elem->prio) ;
+    printf("<%d>", elem->id) ;
     elem->next ? printf("%d", elem->next->id) : printf("*");
 }
+//##############################################################################
+
+
                     
 /*
  * Retorna endereço para inserir task na fila
  * algoritmo é inserir no fim por enquanto
  */
 task_t* scheduler(){
-    return task_queue;
+    task_t *iter = task_queue;
+    task_t *menor = task_queue;
+
+    // Itera sobre a fila para achar a tarefa com mais prioridade | "menor"
+    do {
+        int total_iter = iter->prio_s + iter->prio_d ;
+        int total_menor = menor->prio_s + menor->prio_d ;
+        if(total_iter < total_menor) menor = iter ;
+        iter = iter->next ;
+    } while (iter != task_queue) ;
+    
+    // Itera para envelhecer as tarefas e resetar a menor
+    iter = task_queue ;
+    do {
+        if(iter == menor){
+            iter->prio_d = PRIO_DEFAULT ;
+            iter = iter->next ;
+            continue ;
+        }
+
+        if(iter->prio_d + iter->prio_s > PRIO_ALTA)
+            iter->prio_d += PRIO_PASSO;
+        
+        iter = iter->next ;
+    } while (iter != task_queue) ;
+    
+    return menor;
 }
 //##############################################################################
 
-void ordered_append(task_t **queue, task_t *task){
-    if(queue_size((queue_t *) *queue) == 0){
-        queue_append((queue_t **) queue, (queue_t *) task);
-        return;
-    }
-    task_t* iter = *queue ;
-    while(iter->next != *queue){
-        if(iter->prio <= task->prio) break ;
-        iter = iter->next;
-    }
-    queue_append((queue_t **) &iter, (queue_t *) task);
 
-    queue_print("FILA: ", (queue_t *) task_queue, print_elem);
-}
 
 /*
  * Corpo do dispatcher, itera sobre a fila para colocar tarefas em execução
@@ -71,8 +98,7 @@ void dispatcher_body(){
 
         switch (task->status){
             case PRONTA:
-                ordered_append(&task_queue, task);
-                //queue_append((queue_t **) &task_queue, (queue_t *) task) ;
+                queue_append((queue_t **) &task_queue, (queue_t *) task) ;
                 break ;
 
             case TERMINADA:
@@ -144,10 +170,9 @@ int task_init(task_t *task, void (*start_func)(void *), void *arg){
     // Inicialização dos componentes da struct task_t, adição na fila de prontas
     task->id = gbl_tid_next++ ;
     task->status = PRONTA ;
-    task->prio = 0 ;
+    task_setprio(task, PRIO_DEFAULT) ;
 
-    ordered_append(&task_queue, task);
-//    queue_append((queue_t **) &task_queue, (queue_t *) task) ;
+    queue_append((queue_t **) &task_queue, (queue_t *) task) ;
 
     #ifdef DEBUG
         printf("[task_init]\tTarefa %d criada\n", task->id);
@@ -234,12 +259,15 @@ int task_id(){
  * Define um valor para o campo prio(rity) da task recebida
  */
 void task_setprio(task_t* task, int prio){
-    if(!task){
-        perror("[task_setprio]\tTarefa recebida não inicializada\n");
-        exit(1);
-    }
+    if(!task) task = out_task;
 
-    task->prio = prio;
+    task->prio_d = 0 ;
+    // Testa limites {prio e [-20, 20]}
+    if(prio < PRIO_ALTA){
+        task->prio_s = PRIO_ALTA ;
+    } else if (prio > PRIO_BAIXA) {
+        task->prio_s = PRIO_BAIXA ;
+    } else task->prio_s = prio ;
 }
 //##############################################################################
 
@@ -250,6 +278,6 @@ void task_setprio(task_t* task, int prio){
  * corrente
  */
 int task_getprio(task_t* task){
-    return (task) ? task->prio : out_task->prio ;
+    return (task) ? task->prio_s : out_task->prio_s ;
 }
 //##############################################################################
