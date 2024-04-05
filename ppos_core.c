@@ -10,22 +10,6 @@
 #include "ppos.h"
 #include "queue.h"
 
-// Status de tarefas
-#define TERMINADA   0
-#define PRONTA      1
-#define RODANDO     2
-#define SUSPENSA    3
-
-// Prioridades
-#define PRIO_DEFAULT 0
-#define PRIO_ALTA   -20
-#define PRIO_BAIXA  20
-#define PRIO_PASSO   -1
-
-// Tamanho stack
-#define TASK_STACK_SIZE 64*1024
-
-                                    
 int gbl_tid_next = 1;               // Controle de id de tasks criadas
 task_t *out_task, main_task;        // variáveis para task switching 
 task_t dispatcher, *task_queue ;    // variáveis pro dispatcher
@@ -65,6 +49,7 @@ task_t* scheduler(){
     // Itera para envelhecer as tarefas e resetar a menor
     iter = task_queue ;
     do {
+        // Se for a tarefa escolhida, reseta prioridade dinâmica
         if(iter == menor){
             iter->prio_d = PRIO_DEFAULT ;
             iter = iter->next ;
@@ -87,21 +72,24 @@ task_t* scheduler(){
  * Corpo do dispatcher, itera sobre a fila para colocar tarefas em execução
  */
 void dispatcher_body(){
+    // Remove dispatcher da fila
     queue_remove((queue_t **) &task_queue, (queue_t*) &dispatcher);
     task_t* task = NULL ;
 
     while(queue_size((queue_t *) task_queue) > 0){
+        // Seleciona task pelo scheduler, faz o switch
         task = scheduler() ;
         queue_remove((queue_t **) &task_queue, (queue_t *) task);
 
         task_switch(task);        
 
+        // Altera a task após sair de execução
         switch (task->status){
-            case PRONTA:
+            case TASK_PRONTA:
                 queue_append((queue_t **) &task_queue, (queue_t *) task) ;
                 break ;
 
-            case TERMINADA:
+            case TASK_TERMINADA:
                 free(task->context.uc_stack.ss_sp) ;
                 task = NULL ;
                 break ;
@@ -169,7 +157,7 @@ int task_init(task_t *task, void (*start_func)(void *), void *arg){
 
     // Inicialização dos componentes da struct task_t, adição na fila de prontas
     task->id = gbl_tid_next++ ;
-    task->status = PRONTA ;
+    task->status = TASK_PRONTA ;
     task_setprio(task, PRIO_DEFAULT) ;
 
     queue_append((queue_t **) &task_queue, (queue_t *) task) ;
@@ -191,7 +179,7 @@ int task_init(task_t *task, void (*start_func)(void *), void *arg){
 int task_switch (task_t *task){
     task_t* aux = out_task ;
     out_task = task ;
-    task->status = RODANDO ;
+    task->status = TASK_RODANDO ;
 
     #ifdef DEBUG
         printf("[task_switch]\tTrocando contexto %d -> %d\n", aux->id, task->id);
@@ -209,7 +197,7 @@ int task_switch (task_t *task){
  * troca task atual para dispatcher
  */
 void task_yield(){
-    out_task->status = PRONTA ;
+    out_task->status = TASK_PRONTA ;
     task_switch(&dispatcher);
 }
 //##############################################################################v
@@ -227,7 +215,7 @@ void task_exit(int exit_code){
 
     switch(task_id()){
         case 0: // id 0 task main
-            out_task->status = TERMINADA ;
+            out_task->status = TASK_TERMINADA ;
             task_switch(&dispatcher) ;
             break;
 
@@ -236,7 +224,7 @@ void task_exit(int exit_code){
             break;  
 
         default: // outras tasks
-            out_task->status = TERMINADA ;
+            out_task->status = TASK_TERMINADA ;
             task_switch(&dispatcher) ;
             break;
     }

@@ -10,6 +10,21 @@
 
 #include <ucontext.h>		// biblioteca POSIX de trocas de contexto
 
+// Status de tarefas
+#define TASK_TERMINADA   0
+#define TASK_PRONTA      1
+#define TASK_RODANDO     2
+#define TASK_SUSPENSA    3
+
+// Prioridades
+#define PRIO_DEFAULT 0
+#define PRIO_ALTA   -20
+#define PRIO_BAIXA  20
+#define PRIO_PASSO   -1
+
+// Tamanho stack
+#define TASK_STACK_SIZE 64*1024
+                                    
 // Estrutura que define um Task Control Block (TCB)
 typedef struct task_t
 {
