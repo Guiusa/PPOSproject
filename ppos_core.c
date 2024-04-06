@@ -61,6 +61,10 @@ task_t* scheduler(){
         
         iter = iter->next ;
     } while (iter != task_queue) ;
+
+#ifdef DEBUG
+printf("[scheduler]\tEscolhida task %d para execução\n", menor->id) ;
+#endif
     
     return menor;
 }
@@ -79,11 +83,18 @@ void dispatcher_body(){
     while(queue_size((queue_t *) task_queue) > 0){
         // Seleciona task pelo scheduler, faz o switch
         task = scheduler() ;
-        queue_remove((queue_t **) &task_queue, (queue_t *) task);
 
+#ifdef DEBUG
+printf("[dispatcher]\tSelecionada task %d, tirando da fila e fazendo switch\n", task->id);
+#endif
+
+        queue_remove((queue_t **) &task_queue, (queue_t *) task);
         task_switch(task);        
 
         // Altera a task após sair de execução
+#ifdef DEBUG
+printf("[dispatcher]\tTask %d saiu de execução com status %d\n", task->id, task->status) ;
+#endif
         switch (task->status){
             case TASK_PRONTA:
                 queue_append((queue_t **) &task_queue, (queue_t *) task) ;
@@ -109,26 +120,26 @@ void ppos_init(){
     // Desativa buffer do printf
     setvbuf(stdout, 0, _IONBF, 0) ;
 
-    #ifdef DEBUG
-        printf("[ppos_init]\tIniciando o sistema e a task main\n");
-    #endif
+#ifdef DEBUG
+printf("[ppos_init]\tIniciando o sistema e a task main\n");
+#endif
 
     // Inicia a task main
     getcontext(&main_task.context) ;
     out_task = &main_task;
     main_task.id = 0 ;
 
-    #ifdef DEBUG
-        printf("[ppos_init]\tIniciando e definindo task dispatcher\n");
-    #endif
+#ifdef DEBUG
+printf("[ppos_init]\tIniciando e definindo task dispatcher\n");
+#endif
 
     // Inicia a task do dispatcher
     task_queue = NULL;
     task_init(&dispatcher, (void *) dispatcher_body, NULL);
 
-    #ifdef DEBUG
-        printf("[ppos_init]\tPPOS inicializado\n");
-    #endif
+#ifdef DEBUG
+printf("[ppos_init]\tPPOS inicializado\n");
+#endif
 }
 //##############################################################################
 
@@ -162,10 +173,10 @@ int task_init(task_t *task, void (*start_func)(void *), void *arg){
 
     queue_append((queue_t **) &task_queue, (queue_t *) task) ;
 
-    #ifdef DEBUG
-        printf("[task_init]\tTarefa %d criada\n", task->id);
-        printf("[task_init]\tFila de prontas tem tamanho %d\n", queue_size((queue_t *) task_queue)) ;
-    #endif
+#ifdef DEBUG
+printf("[task_init]\tTarefa %d criada\n", task->id);
+printf("[task_init]\tFila de prontas tem tamanho %d\n", queue_size((queue_t *) task_queue)) ;
+#endif
 
     return task->id;
 }
@@ -181,9 +192,9 @@ int task_switch (task_t *task){
     out_task = task ;
     task->status = TASK_RODANDO ;
 
-    #ifdef DEBUG
-        printf("[task_switch]\tTrocando contexto %d -> %d\n", aux->id, task->id);
-    #endif
+#ifdef DEBUG
+printf("[task_switch]\tTrocando contexto %d -> %d\n", aux->id, task->id);
+#endif
 
     swapcontext(&aux->context, &task->context);
     
@@ -197,6 +208,9 @@ int task_switch (task_t *task){
  * troca task atual para dispatcher
  */
 void task_yield(){
+#ifdef DEBUG
+printf("[task_yield]\tChamda para volta do dispatcher\n") ;
+#endif
     out_task->status = TASK_PRONTA ;
     task_switch(&dispatcher);
 }
@@ -209,9 +223,9 @@ void task_yield(){
  * Finaliza uma task, mudando para o dispatcher quando necessário
  */
 void task_exit(int exit_code){
-    #ifdef DEBUG
-        printf("[task_exit]\tTerminando tarefa %d\n", out_task->id);
-    #endif
+#ifdef DEBUG
+printf("[task_exit]\tTerminando tarefa %d\n", out_task->id);
+#endif
 
     switch(task_id()){
         case 0: // id 0 task main
@@ -256,6 +270,10 @@ void task_setprio(task_t* task, int prio){
     } else if (prio > PRIO_BAIXA) {
         task->prio_s = PRIO_BAIXA ;
     } else task->prio_s = prio ;
+
+#ifdef DEBUG
+printf("[task_setprio]\tSetada prioridade estática com valor %d na task %d\n", prio, (task) ? task->id : out_task->id) ;
+#endif
 }
 //##############################################################################
 
