@@ -9,20 +9,43 @@
 #define __PPOS_DATA__
 
 #include <ucontext.h>		// biblioteca POSIX de trocas de contexto
+    
+/* 
+ * 0    main
+ * 1    dispatcher
+ * 2+   user tasks
+*/
+#define TASK_IDS 2
+    
 
-// tamanho da pilha de cada tarefa
+// Status de tarefas
+#define TASK_TERMINADA   0
+#define TASK_PRONTA      1
+#define TASK_RODANDO     2
+#define TASK_SUSPENSA    3
+
+// Prioridades
+#define PRIO_DEFAULT 0
+#define PRIO_ALTA   -20
+#define PRIO_BAIXA  20
+#define PRIO_PASSO   -1
+
+// Tamanho stack
 #define TASK_STACK_SIZE 64*1024
 
-// itrador para dar um valor novo a cada tarefa
-extern int gbl_tid_next;
-
+//MEU OVO
+#define QUANTUM 10
+                                    
 // Estrutura que define um Task Control Block (TCB)
 typedef struct task_t
 {
   struct task_t *prev, *next ;		// ponteiros para usar em filas
-  int id ;				// identificador da tarefa
-  ucontext_t context ;			// contexto armazenado da tarefa
-  short status ;			// pronta, rodando, suspensa, ...
+  int id ;				            // identificador da tarefa
+  ucontext_t context ;			    // contexto armazenado da tarefa
+  short status ;			        // pronta, rodando, suspensa, ...
+  int prio_s ;                      // prioridade [-20, 20]
+  int prio_d ;                      // prioridade dinâmica
+  int quantum ;
   // ... (outros campos serão adicionados mais tarde)
 } task_t ;
 

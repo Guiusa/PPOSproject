@@ -1,6 +1,6 @@
 // PingPongOS - PingPong Operating System
 // Prof. Carlos A. Maziero, DINF UFPR
-// Versão 1.6 -- Maio de 2023
+// Versão 1.6 -- maio de 2023
 
 // ESTE ARQUIVO NÃO DEVE SER MODIFICADO - ELE SERÁ SOBRESCRITO NOS TESTES
 
