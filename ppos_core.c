@@ -1,8 +1,4 @@
 // GRR20210572 Guiusepe Oneda Dal Pai
-// Esse software foi produzido ao som dessa(s) bomba(s):
-// https://open.spotify.com/playlist/37i9dQZF1DZ06evO0gHlRP?si=6940c39240224a56
-// https://open.spotify.com/album/4d1mlXFZNIpwadYTMl8pED?si=0dIQdTG0R7CQRPwNfSkn-w
-// https://open.spotify.com/album/5m2Qjtg2Og7ee5TcTgJZkn?si=SPhZAVF9RbW76dQi7JUayA
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,18 +9,27 @@
 #include "queue.h"
 
 int gbl_tid_next = 1;               // Controle de id de tasks criadas
-task_t *out_task, main_task;        // variáveis para task switching 
-task_t dispatcher, *task_queue ;    // variáveis pro dispatcher
+task_t *out_task, main_task;        // Variáveis para task switching 
+task_t dispatcher, *task_queue ;    // Variáveis pro dispatcher
+struct sigaction action ;           // Tratador de sinais
+struct itimerval timer ;            // Timer, simula timer do hardware
 
-// AAAAAAAAAAA
-struct sigaction action ;
-struct itimerval timer ;
-
-void tratador (int signum) {
-    if(out_task->id < TASK_IDS) return ;
+/*
+ * É chamada a cada 1ms
+ * decrementa quantum da tarefa atual e faz switch se necessário
+ */
+void tick_handler (int signum) {
+    // Se a task não é de sistema
+    if(out_task->sys_task) return ;
+    // Se quantum ainda é válido
     if(--out_task->quantum > 0) return ;
+
+    // Chegou em 0, faz task yield pra preempção
     task_yield() ;
 }
+//##############################################################################
+
+
 
 /*
  * Função auxiliar para imprimir a fila caso necessário
@@ -129,26 +134,34 @@ void ppos_init(){
     getcontext(&main_task.context) ;
     out_task = &main_task;
     main_task.id = 0 ;
-
-    #ifdef DEBUG
-        printf("[ppos_init]\tIniciando e definindo task dispatcher\n");
-    #endif
-
-    action.sa_handler = tratador ;
+ 
+    // Inicializa tratador de sinais
+    action.sa_handler = tick_handler ;
     sigemptyset (&action.sa_mask) ;
     action.sa_flags = 0 ;
-    sigaction(SIGALRM, &action, 0) ;
+    if(sigaction(SIGALRM, &action, 0) < 0){
+        perror("ERRO em sigaction: ") ;
+        exit(1) ;
+    }
 
-    timer.it_value.tv_usec = 1000 ;
-    timer.it_value.tv_sec = 0 ;
-    timer.it_interval.tv_usec = 1000 ;
-    timer.it_interval.tv_sec = 0;
+    // Inicializa o timer que simula ticks do hardware
+    timer.it_value.tv_sec = FIRST_TICK_S ;
+    timer.it_interval.tv_sec = INTERVAL_TICK_S ;
+    timer.it_value.tv_usec = FIRST_TICK_US ;
+    timer.it_interval.tv_usec = INTERVAL_TICK_US ;
 
-    setitimer(ITIMER_REAL, &timer, 0) ;
+    if(setitimer(ITIMER_REAL, &timer, 0) < 0){
+        perror("ERRO em setitimer: ") ;
+        exit(1) ;
+    }
 
     // Inicia a task do dispatcher
     task_queue = NULL;
     task_init(&dispatcher, (void *) dispatcher_body, NULL);
+    dispatcher.sys_task = 1 ; // dispatcher não pode sofrer preemção
+    #ifdef DEBUG
+        printf("[ppos_init]\tIniciando e definindo task dispatcher\n");
+    #endif
 
     #ifdef DEBUG
         printf("[ppos_init]\tPPOS inicializado\n");
@@ -184,6 +197,7 @@ int task_init(task_t *task, void (*start_func)(void *), void *arg){
     task->status = TASK_PRONTA ;
     task_setprio(task, PRIO_DEFAULT) ;
     task->quantum = 0 ;
+    task->sys_task = 0 ;
 
     queue_append((queue_t **) &task_queue, (queue_t *) task) ;
 
