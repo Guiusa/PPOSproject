@@ -13,12 +13,16 @@ task_t *out_task, main_task;        // Variáveis para task switching
 task_t dispatcher, *task_queue ;    // Variáveis pro dispatcher
 struct sigaction action ;           // Tratador de sinais
 struct itimerval timer ;            // Timer, simula timer do hardware
+unsigned int clock = 0 ;            // Clock do sistema
+unsigned int last_task_time = 0 ;   // Ultimo clock que uma tarefa entrou 
 
 /*
  * É chamada a cada 1ms
  * decrementa quantum da tarefa atual e faz switch se necessário
  */
 void tick_handler (int signum) {
+    clock++ ;
+
     // Se a task não é de sistema
     if(out_task->sys_task) return ;
     // Se quantum ainda é válido
@@ -131,9 +135,17 @@ void ppos_init(){
     #endif
 
     // Inicia a task main
+    main_task.first_clock = systime() ;
     getcontext(&main_task.context) ;
-    out_task = &main_task;
     main_task.id = 0 ;
+    main_task.status = TASK_PRONTA ;
+    main_task.quantum = QUANTUM ;
+    main_task.sys_task = 0 ;
+    task_setprio(&main_task, PRIO_DEFAULT) ;
+    main_task.ativ = 1 ;
+    main_task.cpu_time = 0 ;
+    main_task.first_clock = systime() ;
+    out_task = &main_task;
  
     // Inicializa tratador de sinais
     action.sa_handler = tick_handler ;
@@ -193,11 +205,16 @@ int task_init(task_t *task, void (*start_func)(void *), void *arg){
     makecontext(&task->context, (void (*)(void)) start_func, 1, arg) ;
 
     // Inicialização dos componentes da struct task_t, adição na fila de prontas
+    task->first_clock = systime() ;
     task->id = gbl_tid_next++ ;
     task->status = TASK_PRONTA ;
     task_setprio(task, PRIO_DEFAULT) ;
     task->quantum = 0 ;
     task->sys_task = 0 ;
+    task->ativ = 0 ;
+    task->first_clock = systime() ;
+    task->cpu_time = 0 ;
+
 
     queue_append((queue_t **) &task_queue, (queue_t *) task) ;
 
@@ -216,11 +233,15 @@ int task_init(task_t *task, void (*start_func)(void *), void *arg){
  * Troca a task atual para a recebida por parâmetro
  */
 int task_switch (task_t *task){
+    unsigned int aux_time = last_task_time ;
     task_t* aux = out_task ;
     out_task = task ;
     task->status = TASK_RODANDO ;
     task->quantum = QUANTUM ;
+    task->ativ++ ;
 
+    last_task_time = systime() ;
+    aux->cpu_time += last_task_time - aux_time ;
     #ifdef DEBUG
         printf("[task_switch]\tTrocando contexto %d -> %d\n", aux->id, task->id);
     #endif
@@ -252,6 +273,13 @@ void task_exit(int exit_code){
     #ifdef DEBUG
         printf("[task_exit]\tTerminando tarefa %d\n", out_task->id);
     #endif
+
+    printf("Task %d exit: execution time %d ms, processor time %d ms, %d activations\n",
+        out_task->id,
+        systime() - out_task->first_clock,
+        out_task->cpu_time,
+        out_task->ativ
+    ) ;
 
     switch(task_id()){
         case 0: // id 0 task main
@@ -307,5 +335,15 @@ void task_setprio(task_t* task, int prio){
  */
 int task_getprio(task_t* task){
     return (task) ? task->prio_s : out_task->prio_s ;
+}
+//##############################################################################
+
+
+
+/*
+ * Retorna clock atual do sistema
+ */
+unsigned int systime(){
+    return clock ;
 }
 //##############################################################################

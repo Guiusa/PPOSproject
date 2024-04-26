@@ -26,7 +26,7 @@
 #define TASK_STACK_SIZE 64*1024
 
 // Quantum que cada tarefa recebe - 60 ms
-#define QUANTUM 60
+#define QUANTUM 20
 // Simulação do tick do hardware a cada 1 ms
 #define FIRST_TICK_S 0 
 #define INTERVAL_TICK_S 0
@@ -44,6 +44,9 @@ typedef struct task_t
   short sys_task ;                  // sistema ou não
   int prio_s ;                      // prioridade [-20, 20]
   int prio_d ;                      // prioridade dinâmica
+  int ativ ;                        // numero de ativações
+  unsigned int first_clock ;        // primeiro clock da tarefa
+  int cpu_time ;                    // tempo com cpu
   // ... (outros campos serão adicionados mais tarde)
 } task_t ;
 
