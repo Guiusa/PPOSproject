@@ -104,11 +104,18 @@ void dispatcher_body(){
 
     while(queue_size((queue_t *) task_queue) > 0 || queue_size((queue_t *) sleep_queue) > 0){
         
+        // Itera sobre a fila de adormecidas e acorda as necessárias
+        // Só a cada 100 ms
         task_t* sleep_aux = sleep_queue ;
         if(systime()%100== 0){
             for(int i = queue_size((queue_t *) sleep_queue); i>0; i--){
-                if(systime() >= sleep_aux->sleep_untill)
-                    task_awake(sleep_aux, (task_t **) &sleep_queue) ;
+                // if necessario pois após task_awake a variavel sleep_task
+                // perde referência da fila de adormecidas
+                if(systime() >= sleep_aux->sleep_untill){
+                    sleep_aux = sleep_aux->next ;
+                    task_awake(sleep_aux->prev, (task_t **) &sleep_queue) ;
+                    continue ;
+                }
                 sleep_aux = sleep_aux->next ;
             }
         }
