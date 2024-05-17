@@ -9,7 +9,7 @@
 #define __PPOS_DATA__
 
 #include <ucontext.h>		// biblioteca POSIX de trocas de contexto
-
+#include "queue.h"          // 
 // Status de tarefas
 #define TASK_TERMINADA   0
 #define TASK_PRONTA      1
@@ -47,6 +47,7 @@ typedef struct task_t
   int ativ ;                        // numero de ativações
   unsigned int first_clock ;        // primeiro clock da tarefa
   int cpu_time ;                    // tempo com cpu
+  queue_t** suspended_queue ;        // fila de tarefas suspensas por ela
   // ... (outros campos serão adicionados mais tarde)
 } task_t ;
 

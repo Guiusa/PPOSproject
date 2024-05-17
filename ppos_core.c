@@ -15,6 +15,7 @@ struct sigaction action ;           // Tratador de sinais
 struct itimerval timer ;            // Timer, simula timer do hardware
 unsigned int clock = 0 ;            // Clock do sistema
 unsigned int last_task_time = 0 ;   // Ultimo clock que uma tarefa entrou 
+int last_exit_code = 0;             // Código de retorno da última tarefa
 
 /*
  * É chamada a cada 1ms
@@ -27,6 +28,10 @@ void tick_handler (int signum) {
     if(out_task->sys_task) return ;
     // Se quantum ainda é válido
     if(--out_task->quantum > 0) return ;
+
+    #ifdef DEBUG
+        printf("task %d foi decrementada %d vezes\n", out_task->id, QUANTUM - out_task->quantum) ;
+    #endif
 
     // Chegou em 0, faz task yield pra preempção
     task_yield() ;
@@ -50,7 +55,7 @@ void print_elem (void *ptr){
 //##############################################################################
 
 
-                    
+
 /*
  * Retorna endereço para inserir task na fila
  * algoritmo é inserir no fim por enquanto
@@ -100,6 +105,9 @@ void dispatcher_body(){
     while(queue_size((queue_t *) task_queue) > 0){
         // Seleciona task pelo scheduler, faz o switch
         task = scheduler() ;
+        #ifdef DEBUG
+            printf("[dispatcher] scheduler retornou a task %d\n", task->id) ;
+        #endif
         queue_remove((queue_t **) &task_queue, (queue_t *) task);
 
         task_switch(task);        
@@ -145,6 +153,8 @@ void ppos_init(){
     main_task.ativ = 1 ;
     main_task.cpu_time = 0 ;
     main_task.first_clock = systime() ;
+    main_task.suspended_queue = NULL ;
+    queue_append((queue_t**) &task_queue, (queue_t *) &main_task) ;
     out_task = &main_task;
  
     // Inicializa tratador de sinais
@@ -168,7 +178,6 @@ void ppos_init(){
     }
 
     // Inicia a task do dispatcher
-    task_queue = NULL;
     task_init(&dispatcher, (void *) dispatcher_body, NULL);
     dispatcher.sys_task = 1 ; // dispatcher não pode sofrer preemção
     #ifdef DEBUG
@@ -214,6 +223,7 @@ int task_init(task_t *task, void (*start_func)(void *), void *arg){
     task->ativ = 0 ;
     task->first_clock = systime() ;
     task->cpu_time = 0 ;
+    task->suspended_queue = NULL ;
 
 
     queue_append((queue_t **) &task_queue, (queue_t *) task) ;
@@ -281,6 +291,7 @@ void task_exit(int exit_code){
         out_task->ativ
     ) ;
 
+    last_exit_code = exit_code ;
     switch(task_id()){
         case 0: // id 0 task main
             out_task->status = TASK_TERMINADA ;
@@ -292,6 +303,11 @@ void task_exit(int exit_code){
             break;  
 
         default: // outras tasks
+            while(out_task->suspended_queue){
+                task_awake(
+                        (task_t *) out_task->suspended_queue,
+                        (task_t **) &out_task->suspended_queue) ;
+            }
             out_task->status = TASK_TERMINADA ;
             task_switch(&dispatcher) ;
             break;
@@ -345,5 +361,41 @@ int task_getprio(task_t* task){
  */
 unsigned int systime(){
     return clock ;
+}
+//##############################################################################
+
+
+
+/*
+ * Suspende tarefa e insere em queue
+ */
+void task_suspend (task_t **queue){
+    queue_remove((queue_t **) &task_queue, (queue_t *) out_task) ;
+    out_task->status = TASK_SUSPENSA ;
+    queue_append((queue_t **) queue, (queue_t *) out_task) ;
+    task_yield() ;
+}
+//##############################################################################
+
+
+
+/*
+ * Acorda tarefa e insere na fila de prontas
+ */
+void task_awake (task_t* task, task_t **queue){
+    queue_remove((queue_t **) queue, (queue_t *) task) ;
+    task->status = TASK_PRONTA ;
+    queue_append((queue_t **) &task_queue, (queue_t *) task) ;
+}
+//##############################################################################
+
+
+
+/*
+ * Suspende task atual em função do parâmetro task recebido
+ */
+int task_wait (task_t* task){
+    task_suspend((task_t **) &task->suspended_queue) ;
+    return last_exit_code ;
 }
 //##############################################################################
