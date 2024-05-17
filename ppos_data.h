@@ -47,7 +47,9 @@ typedef struct task_t
   int ativ ;                        // numero de ativações
   unsigned int first_clock ;        // primeiro clock da tarefa
   int cpu_time ;                    // tempo com cpu
-  queue_t** suspended_queue ;        // fila de tarefas suspensas por ela
+  unsigned int sleep_untill ;       // tempo dormindo
+  int exit_code ;                   // exit_code
+  queue_t** suspended_queue ;       // fila de tarefas suspensas por ela
   // ... (outros campos serão adicionados mais tarde)
 } task_t ;
 

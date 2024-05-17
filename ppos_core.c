@@ -15,7 +15,7 @@ struct sigaction action ;           // Tratador de sinais
 struct itimerval timer ;            // Timer, simula timer do hardware
 unsigned int clock = 0 ;            // Clock do sistema
 unsigned int last_task_time = 0 ;   // Ultimo clock que uma tarefa entrou 
-int last_exit_code = 0;             // Código de retorno da última tarefa
+task_t* sleep_queue ;               // Fila de tarefas dormindo
 
 /*
  * É chamada a cada 1ms
@@ -102,7 +102,18 @@ void dispatcher_body(){
     queue_remove((queue_t **) &task_queue, (queue_t*) &dispatcher);
     task_t* task = NULL ;
 
-    while(queue_size((queue_t *) task_queue) > 0){
+    while(queue_size((queue_t *) task_queue) > 0 || queue_size((queue_t *) sleep_queue) > 0){
+        
+        task_t* sleep_aux = sleep_queue ;
+        if(systime()%100== 0){
+            for(int i = queue_size((queue_t *) sleep_queue); i>0; i--){
+                if(systime() >= sleep_aux->sleep_untill)
+                    task_awake(sleep_aux, (task_t **) &sleep_queue) ;
+                sleep_aux = sleep_aux->next ;
+            }
+        }
+        
+        if(queue_size((queue_t *) task_queue) == 0) continue ;
         // Seleciona task pelo scheduler, faz o switch
         task = scheduler() ;
         #ifdef DEBUG
@@ -291,7 +302,7 @@ void task_exit(int exit_code){
         out_task->ativ
     ) ;
 
-    last_exit_code = exit_code ;
+    out_task->exit_code = exit_code ;
     switch(task_id()){
         case 0: // id 0 task main
             out_task->status = TASK_TERMINADA ;
@@ -395,7 +406,19 @@ void task_awake (task_t* task, task_t **queue){
  * Suspende task atual em função do parâmetro task recebido
  */
 int task_wait (task_t* task){
+    if(task->status == TASK_TERMINADA) return task->exit_code ;
     task_suspend((task_t **) &task->suspended_queue) ;
-    return last_exit_code ;
+    return task->exit_code ;
+}
+//##############################################################################
+
+
+
+/*
+ * Coloca a tarefa na fila de tarefas dormindo
+ */
+void task_sleep(int t){
+    out_task->sleep_untill = systime() + t;
+    task_suspend(&sleep_queue) ;
 }
 //##############################################################################
