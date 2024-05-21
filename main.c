@@ -11,17 +11,18 @@ typedef struct fila_int {
 
 task_t p1, p2, p3, c1, c2 ;
 semaphore_t s_vaga, s_buffer, s_item ;
-fila_int *BUFFER = NULL;
+int BUFFER[5] ;
+int b_top = 0 ;
 
 void add_value(int i){
-    fila_int k;
-    k.v = i ;
-    queue_append((queue_t **) &BUFFER, (queue_t *) &k) ;
+    BUFFER[b_top] = i ;
+    b_top++ ;
 }
 
 void remove_value(int* i){
-    (*i) = BUFFER->v ;
-    queue_remove((queue_t **) &BUFFER, (queue_t *) BUFFER) ;
+    (*i) = BUFFER[0] ;
+    for(int i = 0; i<b_top; i++) BUFFER[i] = BUFFER[i+1] ;
+    b_top-- ;
 }
 
 void body_produtor (void *arg){
@@ -68,8 +69,8 @@ int main(int argc, char** argv){
     task_init(&p1, body_produtor, "p1");
     task_init(&p2, body_produtor, "p2");
     task_init(&p3, body_produtor, "p3");
-//    task_init(&c1, body_consumidor, "c1");
-//    task_init(&c2, body_consumidor, "c2");    
+    task_init(&c1, body_consumidor, "\t\t\t\t\tc1");
+    task_init(&c2, body_consumidor, "\t\t\t\t\tc2");    
 
     task_exit(0) ;
 }
