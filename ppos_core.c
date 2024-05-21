@@ -107,28 +107,29 @@ void dispatcher_body(){
         // Itera sobre a fila de adormecidas e acorda as necessárias
         // Só a cada 100 ms
         task_t* sleep_aux = sleep_queue ;
-        if(systime()%100== 0){
-            for(int i = queue_size((queue_t *) sleep_queue); i>0; i--){
-                // if necessario pois após task_awake a variavel sleep_task
-                // perde referência da fila de adormecidas
-                if(systime() >= sleep_aux->sleep_untill){
-                    sleep_aux = sleep_aux->next ;
-                    task_awake(sleep_aux->prev, (task_t **) &sleep_queue) ;
-                    continue ;
-                }
+        for(int i = queue_size((queue_t *) sleep_queue); i>0; i--){
+            // if necessario pois após task_awake a variavel sleep_task
+            // perde referência da fila de adormecidas
+            if(systime() >= sleep_aux->sleep_untill){
+                #ifdef DEBUG
+                    printf("[dispatcher] Task %d será acordada", sleep_aux->id) ;
+                #endif
                 sleep_aux = sleep_aux->next ;
+                task_awake(sleep_aux->prev, (task_t **) &sleep_queue) ;
+                continue ;
             }
+            sleep_aux = sleep_aux->next ;
         }
         
         if(queue_size((queue_t *) task_queue) == 0) continue ;
         // Seleciona task pelo scheduler, faz o switch
         task = scheduler() ;
         #ifdef DEBUG
-            printf("[dispatcher] scheduler retornou a task %d\n", task->id) ;
+            printf("[dispatcher]\tscheduler retornou a task %d\n", task->id) ;
         #endif
         queue_remove((queue_t **) &task_queue, (queue_t *) task);
 
-        task_switch(task);        
+        task_switch(task); 
 
         // Altera a task após sair de execução
         switch (task->status){
@@ -157,7 +158,7 @@ void ppos_init(){
     setvbuf(stdout, 0, _IONBF, 0) ;
 
     #ifdef DEBUG
-        printf("[ppos_init]\tIniciando o sistema e a task main\n");
+        printf("[ppos_init]\tIniciando o sistema\n");
     #endif
 
     // Inicia a task main
@@ -174,7 +175,10 @@ void ppos_init(){
     main_task.suspended_queue = NULL ;
     queue_append((queue_t**) &task_queue, (queue_t *) &main_task) ;
     out_task = &main_task;
- 
+    #ifdef DEBUG
+        printf("[ppos_init]\tTask main inicializada\n") ;
+    #endif
+
     // Inicializa tratador de sinais
     action.sa_handler = tick_handler ;
     sigemptyset (&action.sa_mask) ;
@@ -183,27 +187,28 @@ void ppos_init(){
         perror("ERRO em sigaction: ") ;
         exit(1) ;
     }
+    #ifdef DEBUG
+        printf("[ppos_init]\tInicializado o tratador de sinais\n") ;
+    #endif
 
     // Inicializa o timer que simula ticks do hardware
     timer.it_value.tv_sec = FIRST_TICK_S ;
     timer.it_interval.tv_sec = INTERVAL_TICK_S ;
     timer.it_value.tv_usec = FIRST_TICK_US ;
     timer.it_interval.tv_usec = INTERVAL_TICK_US ;
-
     if(setitimer(ITIMER_REAL, &timer, 0) < 0){
         perror("ERRO em setitimer: ") ;
         exit(1) ;
     }
+    #ifdef DEBUG
+        printf("[ppos_init]\tInicializado o timer periódico\n") ;
+    #endif
 
     // Inicia a task do dispatcher
     task_init(&dispatcher, (void *) dispatcher_body, NULL);
     dispatcher.sys_task = 1 ; // dispatcher não pode sofrer preemção
     #ifdef DEBUG
         printf("[ppos_init]\tIniciando e definindo task dispatcher\n");
-    #endif
-
-    #ifdef DEBUG
-        printf("[ppos_init]\tPPOS inicializado\n");
     #endif
 }
 //##############################################################################
@@ -322,6 +327,9 @@ void task_exit(int exit_code){
 
         default: // outras tasks
             while(out_task->suspended_queue){
+                #ifdef DEBUG
+                    printf("[task_exit]\tAcordando fila de suspensas pela task %d\n", out_task->id) ;
+                #endif
                 task_awake(
                         (task_t *) out_task->suspended_queue,
                         (task_t **) &out_task->suspended_queue) ;
@@ -358,6 +366,9 @@ void task_setprio(task_t* task, int prio){
     } else if (prio > PRIO_BAIXA) {
         task->prio_s = PRIO_BAIXA ;
     } else task->prio_s = prio ;
+    #ifdef DEBUG    
+        printf("[task_setprio]\tTask %d recebeu prioridade %d", task->id, prio) ;
+    #endif
 }
 //##############################################################################
 
@@ -391,7 +402,7 @@ void task_suspend (task_t **queue){
     queue_remove((queue_t **) &task_queue, (queue_t *) out_task) ;
     out_task->status = TASK_SUSPENSA ;
     queue_append((queue_t **) queue, (queue_t *) out_task) ;
-    task_yield() ;
+    task_switch(&dispatcher) ;
 }
 //##############################################################################
 
@@ -413,6 +424,9 @@ void task_awake (task_t* task, task_t **queue){
  * Suspende task atual em função do parâmetro task recebido
  */
 int task_wait (task_t* task){
+    #ifdef DEBUG
+        printf("[task_wait]\tTask %d esperará pelo fim de %d", out_task->id, task->id) ;
+    #endif
     if(task->status == TASK_TERMINADA) return task->exit_code ;
     task_suspend((task_t **) &task->suspended_queue) ;
     return task->exit_code ;
@@ -425,6 +439,9 @@ int task_wait (task_t* task){
  * Coloca a tarefa na fila de tarefas dormindo
  */
 void task_sleep(int t){
+    #ifdef DEBUG
+        printf("[task_sleep]\tTask %d dormirá por %d ms\n", out_task->id, t) ;
+    #endif
     out_task->sleep_untill = systime() + t;
     task_suspend(&sleep_queue) ;
 }
