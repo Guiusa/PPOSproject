@@ -1,71 +1,75 @@
-// PingPongOS - PingPong Operating System
-// Prof. Carlos A. Maziero, DINF UFPR
-// Versão 1.5 -- Março de 2023
-
-// Teste de semáforos (pesado)
-
 #include <stdio.h>
 #include <stdlib.h>
 #include "ppos.h"
+#include "queue.h"
+#define TRUE 1
 
-#define NUMTASKS 30
-#define NUMSTEPS 1000000
+typedef struct fila_int {
+    struct fila_int *prev, *next ;
+    int v ;
+} fila_int ;
 
-task_t task[NUMTASKS] ;
-semaphore_t  s ;
-long int soma = 0 ;
+task_t p1, p2, p3, c1, c2 ;
+semaphore_t s_vaga, s_buffer, s_item ;
+fila_int *BUFFER = NULL;
 
-// corpo das tarefas
-void taskBody(void *id)
-{
-  int i ;
-
-  for (i=0; i< NUMSTEPS; i++)
-  {
-    // incrementa contador (seção crítica)
-    sem_down (&s) ;
-    soma += 1 ;
-    sem_up (&s) ;
-  }
-
-  task_exit (0) ;
+void add_value(int i){
+    fila_int k;
+    k.v = i ;
+    queue_append((queue_t **) &BUFFER, (queue_t *) &k) ;
 }
 
-int main (int argc, char *argv[])
-{
-  int i ;
+void remove_value(int* i){
+    (*i) = BUFFER->v ;
+    queue_remove((queue_t **) &BUFFER, (queue_t *) BUFFER) ;
+}
 
-  printf ("main: inicio\n") ;
+void body_produtor (void *arg){
+    int item ;
+    while(TRUE){
+        task_sleep(1000) ;
+        item = random()%100 ;
 
-  ppos_init () ;
+        sem_down(&s_vaga) ; // ocupa uma vaga
+        
+        sem_down(&s_buffer) ;
+        add_value(item) ;
+        sem_up(&s_buffer) ;
 
-  // inicia semáforo em 0 (bloqueado)
-  sem_init (&s, 0) ;
+        sem_up (&s_item) ; // adicionou item
+                    
+        printf("%s produziou %d\n", (char *) arg, item) ;
+    }
+}
 
-  printf ("%d tarefas somando %d vezes cada, aguarde...\n",
-          NUMTASKS, NUMSTEPS) ;
+void body_consumidor (void *arg){
+    int item ;
+    while(TRUE){
+        sem_down(&s_item) ;
 
-  // inicia as tarefas
-  for (i=0; i<NUMTASKS; i++)
-    task_init (&task[i], taskBody, "Task") ;
+        sem_down(&s_buffer) ;
+        remove_value(&item) ;
+        sem_up(&s_buffer) ;
 
-  // espera um pouco e libera o semáforo
-  task_sleep (20) ;
-  sem_up (&s) ;
+        sem_up (&s_vaga) ;
 
-  // aguarda as tarefas encerrarem
-  for (i=0; i<NUMTASKS; i++)
-    task_wait (&task[i]) ;
+        printf("%s consumiu %d\n", (char *) arg, item) ;
+        task_sleep(1000) ;
+    }
+}
 
-  // destroi o semáforo
-  sem_destroy (&s) ;
+int main(int argc, char** argv){
+    ppos_init() ;
 
-  // verifica se a soma está correta
-  if (soma == (NUMTASKS*NUMSTEPS))
-    printf ("Soma deu %ld, valor correto!\n", soma) ;
-  else
-    printf ("Soma deu %ld, mas deveria ser %d!\n",
-            soma, NUMTASKS*NUMSTEPS) ;
+    sem_init(&s_vaga, 5) ;
+    sem_init(&s_buffer, 1) ;
+    sem_init(&s_item, 0) ;
 
-  task_exit (0) ;
+    task_init(&p1, body_produtor, "p1");
+    task_init(&p2, body_produtor, "p2");
+    task_init(&p3, body_produtor, "p3");
+//    task_init(&c1, body_consumidor, "c1");
+//    task_init(&c2, body_consumidor, "c2");    
+
+    task_exit(0) ;
 }

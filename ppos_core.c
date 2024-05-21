@@ -318,6 +318,7 @@ void task_exit(int exit_code){
     switch(task_id()){
         case 0: // id 0 task main
             out_task->status = TASK_TERMINADA ;
+            queue_remove((queue_t **) &task_queue, (queue_t *) out_task) ;
             task_switch(&dispatcher) ;
             break;
 
