@@ -532,7 +532,7 @@ int sem_up (semaphore_t *s){
 int sem_destroy(semaphore_t *s){
     if(!s) return -1 ;
 
-    while(queue_size((queue_t *) s->queue) > 0){
+    while(s->queue){
         #ifdef DEBUG
             printf("[sem_destroy]\tTask %d será acordada pelo semáforo\n", s->queue->id) ;
         #endif
