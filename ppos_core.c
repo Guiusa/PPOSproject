@@ -112,7 +112,7 @@ void dispatcher_body(){
             // perde referência da fila de adormecidas
             if(systime() >= sleep_aux->sleep_untill){
                 #ifdef DEBUG
-                    printf("[dispatcher] Task %d será acordada", sleep_aux->id) ;
+                    printf("[dispatcher]\tTask %d será acordada\n", sleep_aux->id) ;
                 #endif
                 sleep_aux = sleep_aux->next ;
                 task_awake(sleep_aux->prev, (task_t **) &sleep_queue) ;
@@ -367,7 +367,7 @@ void task_setprio(task_t* task, int prio){
         task->prio_s = PRIO_BAIXA ;
     } else task->prio_s = prio ;
     #ifdef DEBUG    
-        printf("[task_setprio]\tTask %d recebeu prioridade %d", task->id, prio) ;
+        printf("[task_setprio]\tTask %d recebeu prioridade %d\n", task->id, prio) ;
     #endif
 }
 //##############################################################################
@@ -425,7 +425,7 @@ void task_awake (task_t* task, task_t **queue){
  */
 int task_wait (task_t* task){
     #ifdef DEBUG
-        printf("[task_wait]\tTask %d esperará pelo fim de %d", out_task->id, task->id) ;
+        printf("[task_wait]\tTask %d esperará pelo fim de %d\n", out_task->id, task->id) ;
     #endif
     if(task->status == TASK_TERMINADA) return task->exit_code ;
     task_suspend((task_t **) &task->suspended_queue) ;
@@ -446,3 +446,99 @@ void task_sleep(int t){
     task_suspend(&sleep_queue) ;
 }
 //##############################################################################
+
+
+
+/*
+ * Funções de sessão crítica
+ */
+void enter_cs (int *lock){ while(__sync_fetch_and_or (lock, 1)) ; }
+void leave_cs (int *lock){ (*lock) = 0 ; }
+//##############################################################################
+
+
+
+/*
+ * Inicia o semáforo
+ */
+int sem_init(semaphore_t *s, int value) {
+    if(!s){
+        printf("ERRO ao criar semáforo\n") ;
+        return -1 ;
+    }
+
+    s->lock = 0 ;
+    s->queue = NULL ;
+    s->v = value ;
+    #ifdef DEBUG
+        printf("[sem_init]\tCriado semáforo com valor %d\n", value) ;
+    #endif
+    return 0 ;
+}
+//##############################################################################
+
+
+
+/*
+ * Requisita o semáforo
+ */
+int sem_down (semaphore_t *s){
+    if(!s) return -1 ;
+    #ifdef DEBUG
+        printf("[sem_down]\tTarefa %d solicitou sem_down\n", out_task->id) ;
+    #endif
+
+    enter_cs(&s->lock) ;
+    s->v-- ;
+    leave_cs(&s->lock) ;
+
+    if (s->v < 0){
+        #ifdef DEBUG
+            printf("[sem_down]\tTask %d será supensa pelo semáforo\n", out_task->id) ;
+        #endif
+        task_suspend(&s->queue) ;
+    }
+    return 0 ;
+}
+//##############################################################################
+
+
+
+/*
+ * Libera um semáforo
+ */
+int sem_up (semaphore_t *s){
+    if(!s) return -1 ;
+
+    enter_cs(&s->lock) ;
+    s->v++ ;
+    leave_cs(&s->lock) ;
+
+    if(queue_size((queue_t *) s->queue) > 0){
+        #ifdef DEBUG
+            printf("[sem_up]\tTask %d será acordada pelo semáforo\n", s->queue->id) ;
+        #endif
+        task_awake((task_t *) s->queue, (task_t **) &s->queue) ;
+    }
+
+    return 0 ;
+}
+
+
+
+/*
+ * Destroi o semáforo e acorda as tarefas
+ */
+int sem_destroy(semaphore_t *s){
+    if(!s) return -1 ;
+
+    while(queue_size((queue_t *) s->queue) > 0){
+        #ifdef DEBUG
+            printf("[sem_destroy]\tTask %d será acordada pelo semáforo\n", s->queue->id) ;
+        #endif
+
+        task_awake((task_t *) s->queue, (task_t **) &s->queue) ;
+    }
+    s = NULL ;
+    return 0 ;
+}

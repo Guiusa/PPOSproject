@@ -56,7 +56,9 @@ typedef struct task_t
 // estrutura que define um semáforo
 typedef struct
 {
-  // preencher quando necessário
+    int lock ;                      // estado do lock do semáforo
+    task_t* queue ;                 // fila de tasks no semáforo
+    int v ;                         // valor do semáforo
 } semaphore_t ;
 
 // estrutura que define um mutex
