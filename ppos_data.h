@@ -36,21 +36,21 @@
 // Estrutura que define um Task Control Block (TCB)
 typedef struct task_t
 {
-  struct task_t *prev, *next ;		// ponteiros para usar em filas
-  int id ;				            // identificador da tarefa
-  ucontext_t context ;			    // contexto armazenado da tarefa
-  short status ;			        // pronta, rodando, suspensa, ... 
-  short quantum ;                   // ticks pra executar
-  short sys_task ;                  // sistema ou não
-  int prio_s ;                      // prioridade [-20, 20]
-  int prio_d ;                      // prioridade dinâmica
-  int ativ ;                        // numero de ativações
-  unsigned int first_clock ;        // primeiro clock da tarefa
-  int cpu_time ;                    // tempo com cpu
-  unsigned int sleep_untill ;       // tempo dormindo
-  int exit_code ;                   // exit_code
-  queue_t** suspended_queue ;       // fila de tarefas suspensas por ela
-  // ... (outros campos serão adicionados mais tarde)
+    struct task_t *prev, *next ;		// ponteiros para usar em filas
+    int id ;				            // identificador da tarefa
+    ucontext_t context ;			    // contexto armazenado da tarefa
+    short status ;			        // pronta, rodando, suspensa, ... 
+    short quantum ;                   // ticks pra executar
+    short sys_task ;                  // sistema ou não
+    int prio_s ;                      // prioridade [-20, 20]
+    int prio_d ;                      // prioridade dinâmica
+    int ativ ;                        // numero de ativações
+    unsigned int first_clock ;        // primeiro clock da tarefa
+    int cpu_time ;                    // tempo com cpu
+    unsigned int sleep_untill ;       // tempo dormindo
+    int exit_code ;                   // exit_code
+    queue_t** suspended_queue ;       // fila de tarefas suspensas por ela
+    // ... (outros campos serão adicionados mais tarde)
 } task_t ;
 
 // estrutura que define um semáforo
@@ -76,7 +76,13 @@ typedef struct
 // estrutura que define uma fila de mensagens
 typedef struct
 {
-  // preencher quando necessário
+    void* BUFF ;
+    int buff_top ;
+    int msg_size ;
+    semaphore_t *buff_s ;
+    semaphore_t *vaga_s ;
+    semaphore_t *msgs_s ;
+
 } mqueue_t ;
 
 #endif

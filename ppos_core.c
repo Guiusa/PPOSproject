@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
+#include <string.h>
 #include <sys/time.h>
 #include "ppos_data.h"
 #include "ppos.h"
@@ -524,6 +525,7 @@ int sem_up (semaphore_t *s){
 
     return 0 ;
 }
+//##############################################################################
 
 
 
@@ -543,3 +545,102 @@ int sem_destroy(semaphore_t *s){
     s = NULL ;
     return 0 ;
 }
+//##############################################################################
+
+
+
+/*
+ * Cria uma struct mqueue_t
+ */
+int mqueue_init(mqueue_t *queue, int max_msgs, int msg_size){
+    queue->msgs_s = malloc(sizeof(semaphore_t)) ;
+    queue->buff_s = malloc(sizeof(semaphore_t)) ;
+    queue->vaga_s = malloc(sizeof(semaphore_t)) ;
+    queue->BUFF = malloc(max_msgs * msg_size) ;
+    if(!queue->BUFF) return -1 ;
+    
+    queue->buff_top = 0;
+    queue->msg_size = msg_size ;
+
+    sem_init(queue->buff_s, 1) ;
+    sem_init(queue->vaga_s, max_msgs) ;
+    sem_init(queue->msgs_s, 0) ;
+
+
+    return 0 ;
+}
+//##############################################################################
+
+
+
+/*
+ * Envia mensagem para a fila de mensagens
+ */
+int mqueue_send(mqueue_t *queue, void *msg){
+    long offset = queue->buff_top * queue->msg_size ;
+    sem_down(queue->vaga_s) ;
+
+    sem_down(queue->buff_s) ;
+    memcpy(msg, (void *) (queue->BUFF + offset), queue->msg_size) ;
+    queue->buff_top++ ;
+    sem_up(queue->buff_s) ;
+
+    sem_up(queue->msgs_s) ;
+
+    return 0 ;
+}
+//##############################################################################
+
+
+
+/*
+ * Recebe uma mensagem da fila 
+ */
+int mqueue_recv(mqueue_t *queue, void *msg){
+    sem_down(queue->msgs_s) ;
+
+    sem_down(queue->BUFF) ;
+    memcpy((void *) queue->BUFF, msg, queue->msg_size) ;
+    for(int i = 0; i<queue->buff_top; i++){
+        int offset = i * queue->msg_size ;
+        memcpy((void *) (queue->BUFF + offset), (void *) queue->BUFF, queue->msg_size) ;
+    }
+    queue->buff_top--;
+    sem_up(queue->BUFF) ;
+
+    sem_up(queue->vaga_s) ;
+
+    return 0 ;
+}
+//##############################################################################
+
+
+
+/*
+ * Encerra uma fila de mensagens
+ */
+int mqueue_destroy(mqueue_t *queue){
+    free(queue->BUFF) ;
+    free(queue->msgs_s) ;
+    free(queue->vaga_s) ;
+    free(queue->buff_s) ;
+
+    sem_destroy(queue->vaga_s) ;
+    sem_destroy(queue->msgs_s) ;
+    sem_destroy(queue->buff_s) ;
+
+    queue = NULL ;
+
+    return 0 ;
+}
+//##############################################################################
+
+
+
+/*
+ * Retorna o número de mensagens na fila
+ */
+int mqueue_msgs(mqueue_t *queue){
+    return queue->buff_top ;
+}
+//##############################################################################
