@@ -4,11 +4,6 @@
 #include "queue.h"
 #define TRUE 1
 
-typedef struct fila_int {
-    struct fila_int *prev, *next ;
-    int v ;
-} fila_int ;
-
 task_t p1, p2, p3, c1, c2 ;
 semaphore_t s_vaga, s_buffer, s_item ;
 int BUFFER[5] ;
@@ -39,7 +34,7 @@ void body_produtor (void *arg){
 
         sem_up (&s_item) ; // adicionou item
                     
-        printf("%s produziou %d\n", (char *) arg, item) ;
+        printf("%s produziu %d\n", (char *) arg, item) ;
     }
 }
 
