@@ -566,7 +566,6 @@ int mqueue_init(mqueue_t *queue, int max_msgs, int msg_size){
     sem_init(queue->vaga_s, max_msgs) ;
     sem_init(queue->msgs_s, 0) ;
 
-
     return 0 ;
 }
 //##############################################################################
@@ -577,12 +576,16 @@ int mqueue_init(mqueue_t *queue, int max_msgs, int msg_size){
  * Envia mensagem para a fila de mensagens
  */
 int mqueue_send(mqueue_t *queue, void *msg){
-    long offset = queue->buff_top * queue->msg_size ;
+    if(!queue->BUFF) return -1 ;
+
     sem_down(queue->vaga_s) ;
 
     sem_down(queue->buff_s) ;
-    memcpy(msg, (void *) (queue->BUFF + offset), queue->msg_size) ;
+
+    int offset = queue->buff_top * queue->msg_size ;
+    memcpy((void *) (queue->BUFF + offset), msg, queue->msg_size) ;
     queue->buff_top++ ;
+
     sem_up(queue->buff_s) ;
 
     sem_up(queue->msgs_s) ;
@@ -597,16 +600,22 @@ int mqueue_send(mqueue_t *queue, void *msg){
  * Recebe uma mensagem da fila 
  */
 int mqueue_recv(mqueue_t *queue, void *msg){
+    if(!queue->BUFF) return -1 ;
+
     sem_down(queue->msgs_s) ;
 
-    sem_down(queue->BUFF) ;
-    memcpy((void *) queue->BUFF, msg, queue->msg_size) ;
+    sem_down(queue->buff_s) ;
+
+    memcpy(msg, (void *) queue->BUFF, queue->msg_size) ;
     for(int i = 0; i<queue->buff_top; i++){
         int offset = i * queue->msg_size ;
-        memcpy((void *) (queue->BUFF + offset), (void *) queue->BUFF, queue->msg_size) ;
+        memcpy((void *) (queue->BUFF + offset),
+                (void *) (queue->BUFF + offset + queue->msg_size),
+                queue->msg_size) ;
     }
-    queue->buff_top--;
-    sem_up(queue->BUFF) ;
+    queue->buff_top-- ;
+
+    sem_up(queue->buff_s) ;
 
     sem_up(queue->vaga_s) ;
 
@@ -621,15 +630,15 @@ int mqueue_recv(mqueue_t *queue, void *msg){
  */
 int mqueue_destroy(mqueue_t *queue){
     free(queue->BUFF) ;
-    free(queue->msgs_s) ;
-    free(queue->vaga_s) ;
-    free(queue->buff_s) ;
+    queue->BUFF = NULL ;
 
     sem_destroy(queue->vaga_s) ;
     sem_destroy(queue->msgs_s) ;
     sem_destroy(queue->buff_s) ;
 
-    queue = NULL ;
+    free(queue->vaga_s) ;
+    free(queue->msgs_s) ;
+    free(queue->buff_s) ;
 
     return 0 ;
 }

@@ -10,6 +10,8 @@
 #include <time.h>
 #include "ppos.h"
 
+#define SLEEP 300
+
 task_t prod[3], somador, cons[2] ;
 mqueue_t queueValores, queueRaizes ;
 
@@ -33,7 +35,7 @@ void prodBody (void * saida)
       printf ("T%d enviou %d\n", task_id(), valor) ;
 
       // dorme um intervalo aleatorio
-      task_sleep (random () % 3000) ;
+      task_sleep (random () % SLEEP) ;
    }
 }
 
@@ -63,7 +65,7 @@ void somaBody (void * arg)
       mqueue_send (&queueRaizes, &raiz) ;
 
       // dorme um intervalo aleatorio
-      task_sleep (random () % 3000) ;
+      task_sleep (random () % SLEEP) ;
    }
    task_exit(0) ;
 }
@@ -84,7 +86,7 @@ void consBody (void * arg)
       printf ("\t\t\t\tT%d consumiu %f\n", task_id(), valor) ;
 
       // dorme um intervalo aleatorio
-      task_sleep (random () % 3000) ;
+      task_sleep (random () % SLEEP) ;
    }
 }
 
