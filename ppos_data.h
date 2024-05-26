@@ -56,6 +56,7 @@ typedef struct task_t
 // estrutura que define um semáforo
 typedef struct
 {
+    short valid ;
     int lock ;                      // estado do lock do semáforo
     task_t* queue ;                 // fila de tasks no semáforo
     int v ;                         // valor do semáforo
@@ -79,9 +80,10 @@ typedef struct
     void* BUFF ;
     int buff_top ;
     int msg_size ;
-    semaphore_t *buff_s ;
-    semaphore_t *vaga_s ;
-    semaphore_t *msgs_s ;
+    semaphore_t buff_s ;
+    semaphore_t vaga_s ;
+    semaphore_t msgs_s ;
+    short valid ;
 
 } mqueue_t ;
 

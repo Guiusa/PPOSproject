@@ -17,6 +17,7 @@ struct itimerval timer ;            // Timer, simula timer do hardware
 unsigned int clock = 0 ;            // Clock do sistema
 unsigned int last_task_time = 0 ;   // Ultimo clock que uma tarefa entrou 
 task_t* sleep_queue ;               // Fila de tarefas dormindo
+int user_tasks  = 0 ;               // quantia de tasks ativas
 
 /*
  * É chamada a cada 1ms
@@ -103,8 +104,7 @@ void dispatcher_body(){
     queue_remove((queue_t **) &task_queue, (queue_t*) &dispatcher);
     task_t* task = NULL ;
 
-    while(queue_size((queue_t *) task_queue) > 0 || queue_size((queue_t *) sleep_queue) > 0){
-        
+    while(user_tasks > 0){
         // Itera sobre a fila de adormecidas e acorda as necessárias
         // Só a cada 100 ms
         task_t* sleep_aux = sleep_queue ;
@@ -252,6 +252,7 @@ int task_init(task_t *task, void (*start_func)(void *), void *arg){
 
     queue_append((queue_t **) &task_queue, (queue_t *) task) ;
 
+    user_tasks++ ;
     #ifdef DEBUG
         printf("[task_init]\tTarefa %d criada\n", task->id);
         printf("[task_init]\tFila de prontas tem tamanho %d\n", queue_size((queue_t *) task_queue)) ;
@@ -320,6 +321,7 @@ void task_exit(int exit_code){
         case 0: // id 0 task main
             out_task->status = TASK_TERMINADA ;
             queue_remove((queue_t **) &task_queue, (queue_t *) out_task) ;
+            user_tasks--;
             task_switch(&dispatcher) ;
             break;
 
@@ -337,6 +339,7 @@ void task_exit(int exit_code){
                         (task_t **) &out_task->suspended_queue) ;
             }
             out_task->status = TASK_TERMINADA ;
+            user_tasks--;
             task_switch(&dispatcher) ;
             break;
     }
@@ -472,6 +475,7 @@ int sem_init(semaphore_t *s, int value) {
     s->lock = 0 ;
     s->queue = NULL ;
     s->v = value ;
+    s->valid = 1 ;
     #ifdef DEBUG
         printf("[sem_init]\tCriado semáforo com valor %d\n", value) ;
     #endif
@@ -485,7 +489,7 @@ int sem_init(semaphore_t *s, int value) {
  * Requisita o semáforo
  */
 int sem_down (semaphore_t *s){
-    if(!s) return -1 ;
+    if(!s || !s->valid) return -1 ;
     #ifdef DEBUG
         printf("[sem_down]\tTarefa %d solicitou sem_down\n", out_task->id) ;
     #endif
@@ -510,7 +514,7 @@ int sem_down (semaphore_t *s){
  * Libera um semáforo
  */
 int sem_up (semaphore_t *s){
-    if(!s) return -1 ;
+    if(!s || !s->valid) return -1 ;
 
     enter_cs(&s->lock) ;
     s->v++ ;
@@ -533,7 +537,7 @@ int sem_up (semaphore_t *s){
  * Destroi o semáforo e acorda as tarefas
  */
 int sem_destroy(semaphore_t *s){
-    if(!s) return -1 ;
+    if(!s || !s->valid) return -1 ;
 
     while(s->queue){
         #ifdef DEBUG
@@ -542,7 +546,7 @@ int sem_destroy(semaphore_t *s){
 
         task_awake((task_t *) s->queue, (task_t **) &s->queue) ;
     }
-    s = NULL ;
+    s->valid = 0 ;
     return 0 ;
 }
 //##############################################################################
@@ -553,18 +557,18 @@ int sem_destroy(semaphore_t *s){
  * Cria uma struct mqueue_t
  */
 int mqueue_init(mqueue_t *queue, int max_msgs, int msg_size){
-    queue->msgs_s = malloc(sizeof(semaphore_t)) ;
-    queue->buff_s = malloc(sizeof(semaphore_t)) ;
-    queue->vaga_s = malloc(sizeof(semaphore_t)) ;
+    if(!queue) return -1 ;
+
     queue->BUFF = malloc(max_msgs * msg_size) ;
     if(!queue->BUFF) return -1 ;
     
     queue->buff_top = 0;
     queue->msg_size = msg_size ;
+    queue->valid = 1 ;
 
-    sem_init(queue->buff_s, 1) ;
-    sem_init(queue->vaga_s, max_msgs) ;
-    sem_init(queue->msgs_s, 0) ;
+    if(sem_init(&queue->buff_s, 1))         return -1 ;
+    if(sem_init(&queue->vaga_s, max_msgs))  return -1 ;
+    if(sem_init(&queue->msgs_s, 0))         return -1;
 
     return 0 ;
 }
@@ -576,19 +580,19 @@ int mqueue_init(mqueue_t *queue, int max_msgs, int msg_size){
  * Envia mensagem para a fila de mensagens
  */
 int mqueue_send(mqueue_t *queue, void *msg){
-    if(!queue->BUFF) return -1 ;
+    if(!queue || !queue->valid) return -1 ;
 
-    sem_down(queue->vaga_s) ;
+    sem_down(&queue->vaga_s) ;
 
-    sem_down(queue->buff_s) ;
+    sem_down(&queue->buff_s) ;
 
     int offset = queue->buff_top * queue->msg_size ;
     memcpy((void *) (queue->BUFF + offset), msg, queue->msg_size) ;
     queue->buff_top++ ;
 
-    sem_up(queue->buff_s) ;
+    sem_up(&queue->buff_s) ;
 
-    sem_up(queue->msgs_s) ;
+    sem_up(&queue->msgs_s) ;
 
     return 0 ;
 }
@@ -600,11 +604,11 @@ int mqueue_send(mqueue_t *queue, void *msg){
  * Recebe uma mensagem da fila 
  */
 int mqueue_recv(mqueue_t *queue, void *msg){
-    if(!queue->BUFF) return -1 ;
+    if(!queue || !queue->valid) return -1 ;
 
-    sem_down(queue->msgs_s) ;
+    sem_down(&queue->msgs_s) ;
 
-    sem_down(queue->buff_s) ;
+    sem_down(&queue->buff_s) ;
 
     memcpy(msg, (void *) queue->BUFF, queue->msg_size) ;
     for(int i = 0; i<queue->buff_top; i++){
@@ -615,9 +619,9 @@ int mqueue_recv(mqueue_t *queue, void *msg){
     }
     queue->buff_top-- ;
 
-    sem_up(queue->buff_s) ;
+    sem_up(&queue->buff_s) ;
 
-    sem_up(queue->vaga_s) ;
+    sem_up(&queue->vaga_s) ;
 
     return 0 ;
 }
@@ -629,16 +633,14 @@ int mqueue_recv(mqueue_t *queue, void *msg){
  * Encerra uma fila de mensagens
  */
 int mqueue_destroy(mqueue_t *queue){
+    if(!queue || !queue->valid) return -1 ;
+
+    if(sem_destroy(&queue->vaga_s)) return -1;
+    if(sem_destroy(&queue->msgs_s)) return -1 ;
+    if(sem_destroy(&queue->buff_s)) return -1 ;
+
+    queue->valid = 0 ;
     free(queue->BUFF) ;
-    queue->BUFF = NULL ;
-
-    sem_destroy(queue->vaga_s) ;
-    sem_destroy(queue->msgs_s) ;
-    sem_destroy(queue->buff_s) ;
-
-    free(queue->vaga_s) ;
-    free(queue->msgs_s) ;
-    free(queue->buff_s) ;
 
     return 0 ;
 }
@@ -650,6 +652,7 @@ int mqueue_destroy(mqueue_t *queue){
  * Retorna o número de mensagens na fila
  */
 int mqueue_msgs(mqueue_t *queue){
+    if(!queue || !queue->valid) return -1 ;
     return queue->buff_top ;
 }
 //##############################################################################
