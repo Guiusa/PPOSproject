@@ -491,7 +491,7 @@ int sem_init(semaphore_t *s, int value) {
 int sem_down (semaphore_t *s){
     if(!s || !s->valid) return -1 ;
     #ifdef DEBUG
-        printf("[sem_down]\tTarefa %d solicitou sem_down\n", out_task->id) ;
+        printf("[sem_down]\tTarefa %d solicitou sem_down\n", task_id()) ;
     #endif
 
     enter_cs(&s->lock) ;
@@ -500,7 +500,7 @@ int sem_down (semaphore_t *s){
 
     if (s->v < 0){
         #ifdef DEBUG
-            printf("[sem_down]\tTask %d será supensa pelo semáforo\n", out_task->id) ;
+            printf("[sem_down]\tTask %d será supensa pelo semáforo\n", task_id()) ;
         #endif
         task_suspend(&s->queue) ;
     }
@@ -570,6 +570,10 @@ int mqueue_init(mqueue_t *queue, int max_msgs, int msg_size){
     if(sem_init(&queue->vaga_s, max_msgs))  return -1 ;
     if(sem_init(&queue->msgs_s, 0))         return -1;
 
+    #ifdef DEBUG
+        printf("[mqueue_init]\tCriada fila de mensagens com %d espaços de tamanho %d\n", max_msgs, msg_size) ;
+    #endif
+    
     return 0 ;
 }
 //##############################################################################
@@ -585,6 +589,10 @@ int mqueue_send(mqueue_t *queue, void *msg){
     sem_down(&queue->vaga_s) ;
 
     sem_down(&queue->buff_s) ;
+
+    #ifdef DEBUG
+        printf("[mqueue_send]\tTask %d envia mensagem à fila", task_id()) ;
+    #endif
 
     int offset = queue->buff_top * queue->msg_size ;
     memcpy((void *) (queue->BUFF + offset), msg, queue->msg_size) ;
@@ -610,6 +618,10 @@ int mqueue_recv(mqueue_t *queue, void *msg){
 
     sem_down(&queue->buff_s) ;
 
+    #ifdef DEBUG
+        printf("[mqueue_recv]\tTask %d solicita mensagem da fila\n", task_id());
+    #endif
+
     memcpy(msg, (void *) queue->BUFF, queue->msg_size) ;
     for(int i = 0; i<queue->buff_top; i++){
         int offset = i * queue->msg_size ;
@@ -634,6 +646,10 @@ int mqueue_recv(mqueue_t *queue, void *msg){
  */
 int mqueue_destroy(mqueue_t *queue){
     if(!queue || !queue->valid) return -1 ;
+
+    #ifdef DEBUG
+        printf("[mqueue_destroy]\tDestruindo fila de mensagens\n") ;
+    #endif
 
     if(sem_destroy(&queue->vaga_s)) return -1;
     if(sem_destroy(&queue->msgs_s)) return -1 ;
