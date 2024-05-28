@@ -623,12 +623,8 @@ int mqueue_recv(mqueue_t *queue, void *msg){
     #endif
 
     memcpy(msg, (void *) queue->BUFF, queue->msg_size) ;
-    for(int i = 0; i<queue->buff_top; i++){
-        int offset = i * queue->msg_size ;
-        memcpy((void *) (queue->BUFF + offset),
-                (void *) (queue->BUFF + offset + queue->msg_size),
-                queue->msg_size) ;
-    }
+    memcpy((void *) queue->BUFF, (void *) (queue->BUFF + queue->msg_size), queue->msg_size * queue->buff_top) ;
+    
     queue->buff_top-- ;
 
     sem_up(&queue->buff_s) ;
