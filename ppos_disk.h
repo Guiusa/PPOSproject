@@ -11,10 +11,22 @@
 // a um dispositivo de entrada/saida orientado a blocos,
 // tipicamente um disco rigido.
 
+// Estrutura para armazenar as solicitações de disco
+typedef struct req_t
+{
+    struct req_t *prev, *next ;     // Ponteiros de enfileiramento
+    int op ;                        // 0 para escrita, 1 para leitura 
+    void *buff ;                    // Buffer da operação
+    int blk ;                       // Bloco 
+} req_t ; 
+
 // estrutura que representa um disco no sistema operacional
 typedef struct
 {
-  // completar com os campos necessarios
+    int signal ;            // Diz se tarefa foi acordada pelo sinal do disco:
+    semaphore_t disk_s ;    // semáforo para acesso ao disco
+    task_t *disk_suspend ;  // Fila de tarefas suspensas pelo disco
+    req_t *reqs ;           // Fila de requisições
 } disk_t ;
 
 // inicializacao do gerente de disco

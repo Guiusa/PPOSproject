@@ -12,13 +12,13 @@
 int gbl_tid_next = 1;               // Controle de id de tasks criadas
 task_t *out_task, main_task;        // Variáveis para task switching 
 task_t dispatcher, *task_queue ;    // Variáveis pro dispatcher
-struct sigaction action ;           // Tratador de sinais
+struct sigaction quantum_action ;   // Tratador de sinais do timer
 struct itimerval timer ;            // Timer, simula timer do hardware
 unsigned int clock = 0 ;            // Clock do sistema
 unsigned int last_task_time = 0 ;   // Ultimo clock que uma tarefa entrou 
 task_t* sleep_queue ;               // Fila de tarefas dormindo
-int user_tasks  = 0 ;               // quantia de tasks ativas
-
+int user_tasks = 0 ;
+int sys_task_flag = 1 ;
 /*
  * É chamada a cada 1ms
  * decrementa quantum da tarefa atual e faz switch se necessário
@@ -168,7 +168,7 @@ void ppos_init(){
     main_task.id = 0 ;
     main_task.status = TASK_PRONTA ;
     main_task.quantum = QUANTUM ;
-    main_task.sys_task = 0 ;
+    main_task.sys_task = sys_task_flag ;
     task_setprio(&main_task, PRIO_DEFAULT) ;
     main_task.ativ = 1 ;
     main_task.cpu_time = 0 ;
@@ -181,10 +181,10 @@ void ppos_init(){
     #endif
 
     // Inicializa tratador de sinais
-    action.sa_handler = tick_handler ;
-    sigemptyset (&action.sa_mask) ;
-    action.sa_flags = 0 ;
-    if(sigaction(SIGALRM, &action, 0) < 0){
+    quantum_action.sa_handler = tick_handler ;
+    sigemptyset (&quantum_action.sa_mask) ;
+    quantum_action.sa_flags = 0 ;
+    if(sigaction(SIGALRM, &quantum_action, 0) < 0){
         perror("ERRO em sigaction: ") ;
         exit(1) ;
     }
@@ -206,8 +206,8 @@ void ppos_init(){
     #endif
 
     // Inicia a task do dispatcher
+    set_sys_flag() ;
     task_init(&dispatcher, (void *) dispatcher_body, NULL);
-    dispatcher.sys_task = 1 ; // dispatcher não pode sofrer preemção
     #ifdef DEBUG
         printf("[ppos_init]\tIniciando e definindo task dispatcher\n");
     #endif
@@ -243,16 +243,19 @@ int task_init(task_t *task, void (*start_func)(void *), void *arg){
     task->status = TASK_PRONTA ;
     task_setprio(task, PRIO_DEFAULT) ;
     task->quantum = 0 ;
-    task->sys_task = 0 ;
     task->ativ = 0 ;
     task->first_clock = systime() ;
     task->cpu_time = 0 ;
     task->suspended_queue = NULL ;
+    task->sys_task = sys_task_flag ;
 
 
     queue_append((queue_t **) &task_queue, (queue_t *) task) ;
 
-    user_tasks++ ;
+    if(sys_task_flag){
+        sys_task_flag = 0 ;
+    } else user_tasks++ ;
+    
     #ifdef DEBUG
         printf("[task_init]\tTarefa %d criada\n", task->id);
         printf("[task_init]\tFila de prontas tem tamanho %d\n", queue_size((queue_t *) task_queue)) ;
@@ -666,5 +669,15 @@ int mqueue_destroy(mqueue_t *queue){
 int mqueue_msgs(mqueue_t *queue){
     if(!queue || !queue->valid) return -1 ;
     return queue->buff_top ;
+}
+//##############################################################################
+
+
+
+/*
+ * Seta flag para task_init não aumentar user_tasks
+ */
+void set_sys_flag(){
+    sys_task_flag = 1 ;
 }
 //##############################################################################

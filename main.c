@@ -18,7 +18,18 @@ int main (int argc, char *argv[]) {
 
     disk_mgr_init(&numblocks, &blocksize) ;
 
+    char *buff = "BANANA" ;
+    char saida[blocksize] ;
+
     printf("O disco tem %d blocos de %d bytes\n", numblocks, blocksize) ;
+
+    disk_block_write(0, (void*) buff) ;
+    printf("Main saiu de suspensão\n") ;
+
+    disk_block_read(0, (void *) saida) ;
+    printf("Main saiu de suspensão\n") ;
+
+    printf("%s\n", saida) ;
 
     task_exit (0) ;
 }

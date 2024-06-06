@@ -87,4 +87,6 @@ typedef struct
 
 } mqueue_t ;
 
+void set_sys_flag() ;
+
 #endif
