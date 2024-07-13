@@ -10,12 +10,12 @@
 #include "queue.h"
 
 int gbl_tid_next = 1;               // Controle de id de tasks criadas
-task_t *out_task, main_task;        // Variáveis para task switching 
+task_t *out_task, main_task;        // Variáveis para task switching
 task_t dispatcher, *task_queue ;    // Variáveis pro dispatcher
 struct sigaction quantum_action ;   // Tratador de sinais do timer
 struct itimerval timer ;            // Timer, simula timer do hardware
 unsigned int clock = 0 ;            // Clock do sistema
-unsigned int last_task_time = 0 ;   // Ultimo clock que uma tarefa entrou 
+unsigned int last_task_time = 0 ;   // Ultimo clock que uma tarefa entrou
 task_t* sleep_queue ;               // Fila de tarefas dormindo
 int user_tasks = 0 ;
 int sys_task_flag = 1 ;
@@ -30,7 +30,6 @@ void tick_handler (int signum) {
     if(out_task->sys_task) return ;
     // Se quantum ainda é válido
     if(--out_task->quantum > 0) return ;
-
     #ifdef DEBUG
         printf("task %d foi decrementada %d vezes\n", out_task->id, QUANTUM - out_task->quantum) ;
     #endif
@@ -73,7 +72,7 @@ task_t* scheduler(){
         if(total_iter < total_menor) menor = iter ;
         iter = iter->next ;
     } while (iter != task_queue) ;
-    
+
     // Itera para envelhecer as tarefas e resetar a menor
     iter = task_queue ;
     do {
@@ -86,10 +85,10 @@ task_t* scheduler(){
 
         if(iter->prio_d + iter->prio_s > PRIO_ALTA)
             iter->prio_d += PRIO_PASSO;
-        
+
         iter = iter->next ;
     } while (iter != task_queue) ;
-    
+
     return menor;
 }
 //##############################################################################
@@ -121,7 +120,7 @@ void dispatcher_body(){
             }
             sleep_aux = sleep_aux->next ;
         }
-        
+
         if(queue_size((queue_t *) task_queue) == 0) continue ;
         // Seleciona task pelo scheduler, faz o switch
         task = scheduler() ;
@@ -130,7 +129,7 @@ void dispatcher_body(){
         #endif
         queue_remove((queue_t **) &task_queue, (queue_t *) task);
 
-        task_switch(task); 
+        task_switch(task);
 
         // Altera a task após sair de execução
         switch (task->status){
@@ -174,6 +173,7 @@ void ppos_init(){
     main_task.cpu_time = 0 ;
     main_task.first_clock = systime() ;
     main_task.suspended_queue = NULL ;
+    user_tasks++ ;
     queue_append((queue_t**) &task_queue, (queue_t *) &main_task) ;
     out_task = &main_task;
     #ifdef DEBUG
@@ -255,7 +255,7 @@ int task_init(task_t *task, void (*start_func)(void *), void *arg){
     if(sys_task_flag){
         sys_task_flag = 0 ;
     } else user_tasks++ ;
-    
+
     #ifdef DEBUG
         printf("[task_init]\tTarefa %d criada\n", task->id);
         printf("[task_init]\tFila de prontas tem tamanho %d\n", queue_size((queue_t *) task_queue)) ;
@@ -285,7 +285,7 @@ int task_switch (task_t *task){
     #endif
 
     swapcontext(&aux->context, &task->context);
-    
+
     return 0;
 }
 //##############################################################################
@@ -330,7 +330,7 @@ void task_exit(int exit_code){
 
         case 1: // id 1 task dispatcher
             exit(exit_code) ;
-            break;  
+            break;
 
         default: // outras tasks
             while(out_task->suspended_queue){
@@ -353,7 +353,7 @@ void task_exit(int exit_code){
 
 /*
  * Retorna id da task atual
- */ 
+ */
 int task_id(){
     return out_task->id;
 }
@@ -374,7 +374,7 @@ void task_setprio(task_t* task, int prio){
     } else if (prio > PRIO_BAIXA) {
         task->prio_s = PRIO_BAIXA ;
     } else task->prio_s = prio ;
-    #ifdef DEBUG    
+    #ifdef DEBUG
         printf("[task_setprio]\tTask %d recebeu prioridade %d\n", task->id, prio) ;
     #endif
 }
@@ -518,6 +518,9 @@ int sem_down (semaphore_t *s){
  */
 int sem_up (semaphore_t *s){
     if(!s || !s->valid) return -1 ;
+    #ifdef DEBUG
+        printf("[sem_up]\tTarefa %d solicitou sem_up\n", task_id()) ;
+    #endif
 
     enter_cs(&s->lock) ;
     s->v++ ;
@@ -564,7 +567,7 @@ int mqueue_init(mqueue_t *queue, int max_msgs, int msg_size){
 
     queue->BUFF = malloc(max_msgs * msg_size) ;
     if(!queue->BUFF) return -1 ;
-    
+
     queue->buff_top = 0;
     queue->msg_size = msg_size ;
     queue->valid = 1 ;
@@ -576,7 +579,7 @@ int mqueue_init(mqueue_t *queue, int max_msgs, int msg_size){
     #ifdef DEBUG
         printf("[mqueue_init]\tCriada fila de mensagens com %d espaços de tamanho %d\n", max_msgs, msg_size) ;
     #endif
-    
+
     return 0 ;
 }
 //##############################################################################
@@ -612,7 +615,7 @@ int mqueue_send(mqueue_t *queue, void *msg){
 
 
 /*
- * Recebe uma mensagem da fila 
+ * Recebe uma mensagem da fila
  */
 int mqueue_recv(mqueue_t *queue, void *msg){
     if(!queue || !queue->valid) return -1 ;
@@ -627,7 +630,7 @@ int mqueue_recv(mqueue_t *queue, void *msg){
 
     memcpy(msg, (void *) queue->BUFF, queue->msg_size) ;
     memcpy((void *) queue->BUFF, (void *) (queue->BUFF + queue->msg_size), queue->msg_size * queue->buff_top) ;
-    
+
     queue->buff_top-- ;
 
     sem_up(&queue->buff_s) ;
