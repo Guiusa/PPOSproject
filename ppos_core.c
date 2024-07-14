@@ -138,7 +138,6 @@ void dispatcher_body(){
                 break ;
 
             case TASK_TERMINADA:
-                free(task->context.uc_stack.ss_sp) ;
                 task = NULL ;
                 break ;
         }
