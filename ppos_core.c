@@ -19,6 +19,7 @@ unsigned int last_task_time = 0 ;   // Ultimo clock que uma tarefa entrou
 task_t* sleep_queue ;               // Fila de tarefas dormindo
 int user_tasks = 0 ;
 int sys_task_flag = 1 ;
+
 /*
  * É chamada a cada 1ms
  * decrementa quantum da tarefa atual e faz switch se necessário
@@ -30,6 +31,7 @@ void tick_handler (int signum) {
     if(out_task->sys_task) return ;
     // Se quantum ainda é válido
     if(--out_task->quantum > 0) return ;
+
     #ifdef DEBUG
         printf("task %d foi decrementada %d vezes\n", out_task->id, QUANTUM - out_task->quantum) ;
     #endif
@@ -190,12 +192,15 @@ void ppos_init(){
     #ifdef DEBUG
         printf("[ppos_init]\tInicializado o tratador de sinais\n") ;
     #endif
+    queue_append((queue_t**) &task_queue, (queue_t *) &main_task) ;
+    out_task = &main_task;
 
     // Inicializa o timer que simula ticks do hardware
     timer.it_value.tv_sec = FIRST_TICK_S ;
     timer.it_interval.tv_sec = INTERVAL_TICK_S ;
     timer.it_value.tv_usec = FIRST_TICK_US ;
     timer.it_interval.tv_usec = INTERVAL_TICK_US ;
+
     if(setitimer(ITIMER_REAL, &timer, 0) < 0){
         perror("ERRO em setitimer: ") ;
         exit(1) ;
@@ -247,7 +252,6 @@ int task_init(task_t *task, void (*start_func)(void *), void *arg){
     task->cpu_time = 0 ;
     task->suspended_queue = NULL ;
     task->sys_task = sys_task_flag ;
-
 
     queue_append((queue_t **) &task_queue, (queue_t *) task) ;
 
@@ -322,8 +326,10 @@ void task_exit(int exit_code){
     switch(task_id()){
         case 0: // id 0 task main
             out_task->status = TASK_TERMINADA ;
+
             queue_remove((queue_t **) &task_queue, (queue_t *) out_task) ;
             user_tasks--;
+
             task_switch(&dispatcher) ;
             break;
 
@@ -336,6 +342,7 @@ void task_exit(int exit_code){
                 #ifdef DEBUG
                     printf("[task_exit]\tAcordando fila de suspensas pela task %d\n", out_task->id) ;
                 #endif
+
                 task_awake(
                         (task_t *) out_task->suspended_queue,
                         (task_t **) &out_task->suspended_queue) ;
